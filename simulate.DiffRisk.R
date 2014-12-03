@@ -1,5 +1,6 @@
 #!/usr/bin/env Rscript
-args <- commandArgs(TRUE)
+#args <- commandArgs(TRUE)
+args <- c('/tmp/input.csv', '/tmp/tips.csv', '/tmp/output.nwk')
 
 if (length(args) != 3) { stop('Usage: mapCasesToFSA.R <input CSV> <tips CSV> <output NWK>') }
 input.csv = args[1]  # simulation and model parameter settings
@@ -22,8 +23,8 @@ integrationMethod = 'rk4'
 t0 = 0
 t.end = 30.*52  # weeks
 
-# initial population frequencies
-S1 = 499; S2 = 500; I1 = 1; I2 = 0
+N = 1000  # total population size
+p = 0.5  # frequency of risk group 1
 
 # model parameters
 beta = 0.01
@@ -35,11 +36,16 @@ rho = 0.8
 
 
 # parse settings from control file
-inputs <- read.csv(input.csv, header=FALSE, skip=1, na.strings='')
+inputs <- read.csv(input.csv, header=FALSE, na.strings='')
 for (i in 1:nrow(inputs)) {
 	eval(parse(text=paste(sep='', inputs[i,1], '<-', inputs[i,2])))
 }
 
+# initial population frequencies
+S1 = p*N-1
+S2 = (1-p)*N
+I1 = 1
+I2 = 0
 x0 <- c(I1=I1, I2=I2, S1=S1, S2=S2)
 if (any(x0 < 0)) {
 	stop('Population sizes cannot be less than 0.')
@@ -83,7 +89,7 @@ names(nonDemeDynamics) <- c('S1', 'S2')
 ## parse tip labels from file
 # tip label should be an integer 1..n where n is number of demes
 # tip date should be some numerical value < t.end
-tip.labels <- read.csv(tips.csv, header=FALSE, skip=1, na.strings='')
+tip.labels <- read.csv(tips.csv, header=FALSE, na.strings='')
 names(tip.labels) <- c('tip.label', 'tip.height')
 
 
@@ -115,12 +121,11 @@ colnames(sampleStates) <- demes
 for (i in 1:n.tips) {
 	sampleStates[i, tip.labels$tip.label[i]] <- 1
 }
-
 rownames(sampleStates) <- paste(1:n.tips, tip.labels$tip.label, sep='_')
 
 
 # numerical solution of ODE
-require(rcolgem)
+require(rcolgem, quietly=TRUE)
 
 m <- nrow(births)
 maxSampleTime <- max(sampleTimes)

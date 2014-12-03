@@ -1217,7 +1217,7 @@ simulate.binary.dated.tree.unstructured <- function(births, deaths, nonDemeDynam
 simulate.binary.dated.tree.fgy <- function( times, births, migrations, demeSizes, sampleTimes, sampleStates, integrationMethod = 'rk4', n.reps=1, n.cores=1)
 {
 	if (n.cores > 1) {
-		require(parallel)
+		require(parallel, quietly=TRUE)
 		mc <- getOption('mc.cores', n.cores)
 	}
 	
@@ -1453,8 +1453,9 @@ if (s!=1) warning('Tree simulator assumes times given in equal increments')
 	#~ 				u <-  extantLines[ u_i ] 
 	#~ 				v <- extantLines[ v_i ] 
 	#~ 			}
-	#~ tryCatch({
+	tryCatch({
 					.lambdamat <- (t(t(a)) %*% a) * .F
+
 					kl <- sample.int( m^2, size=1, prob=as.vector(.lambdamat) )
 					k <- 1 + ((kl-1) %% m)#row
 					l <- 1 + floor( (kl-1) / m ) #column
@@ -1463,7 +1464,7 @@ if (s!=1) warning('Tree simulator assumes times given in equal increments')
 					probstates[u_i,] <- 0 # cant transmit to itself
 					u <- extantLines[u_i]
 					v <- sample(  extantLines, size=1, prob = probstates[,l])
-	#~ }, error = function(e) browser() )
+	}, error = function(e) browser() )
 	#~ tryCatch( {
 					ustates[u,] <- mstates[u,]
 					ustates[v,] <- mstates[v,]
