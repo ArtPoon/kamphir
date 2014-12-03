@@ -1,0 +1,14 @@
+Package: rcolgem
+Type: Package
+Title: statistical inference and modeling of genealogies generated 
+	by epidemic and ecological processes
+Version: 0.0.4
+Date: 2014-10-11
+Author: {Erik M Volz, Oliver Ratmann, Ethan Romero Severson}
+Maintainer: Erik M Volz <erik.volz+rcolgem@gmail.com>
+Depends:
+	R (>= 2.15.1),
+    ape,
+    deSolve
+Description: rcolgem is a package for phylodynamic inference using population genetic models. rcolgem implements coalescent models for populations with nonlinear dynamics and potentially many demes, and other population genetic models may be supported in the future.  This package is well suited for studying infectious disease epidemics and inference of epidemiological parameters from pathogen phylogenies. The package can also be used for phylogeographic analysis and estimation of demographic histories (population size through time). rcolgem is not a package for conducting phylogenetic inference, although such packages are available in R and such tools may be incorporated in the future. A time-scaled genealogy with known times of sampling is a necessary input for most functions in rcolgem.  Currently, rcolgem works best for fitting deterministic demographic models (e.g. systems of ordinary differential equations). Future versions may incorporate particle filters for fitting stochastic models.  rcolgem also provides methods for simulating trees conditional on a demographic process. 
+License: GPL-3
