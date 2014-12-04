@@ -2,13 +2,8 @@
 # modified by Rosemary McCloskey, 2014
 
 from Bio import Phylo
-#import NewickIO
-
 from numpy import zeros
-from numpy.linalg import cholesky
-from numpy.random import lognormal as lognorm
-
-import math, sys, random
+import math
 
 
 class PhyloKernel:

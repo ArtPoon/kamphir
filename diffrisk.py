@@ -60,7 +60,7 @@ settings = {'c1': {'initial': 0.8,
                       'prior': stats.uniform(loc=520, scale=2600)}}
 
 
-fitter = Fitter(settings)
+fitter = Fitter(settings, ncores=6)
 fitter.set_target_tree(args.nwkfile)
 
 

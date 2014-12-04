@@ -143,6 +143,7 @@ class Fitter (PhyloKernel):
         trees simulated under the given model parameters.
         """
         # TODO: allow user to set arbitrary driver Rscript
+        # TODO: generalize tip label annotation
 
         # generate input control CSV file
         handle = open(self.path_to_input_csv, 'w')
@@ -185,7 +186,7 @@ class Fitter (PhyloKernel):
         return sum(res)/len(res)
     
     
-    def abc_mcmc (self, logfile, max_steps = 1e5, tol0=0.01, mintol=0.0005, decay=0.0025, skip=1):
+    def abc_mcmc (self, logfile, max_steps=1e5, tol0=0.01, mintol=0.0005, decay=0.0025, skip=1):
         """
         Use Approximate Bayesian Computation to sample from posterior
         density over model parameter space, given one or more observed
