@@ -11,6 +11,17 @@ from copy import deepcopy
 import time
 
 
+# see http://stackoverflow.com/questions/8804830/python-multiprocessing-pickling-error/24673524#24673524
+import dill
+
+def run_dill_encoded(what):
+    fun, args = dill.loads(what)
+    return fun(*args)
+
+def apply_async(pool, fun, args):
+    return pool.apply_async(run_dill_encoded, (dill.dumps((fun, args)),))
+
+
 class Kamphir (PhyloKernel):
     """
     Derived class of PhyloKernel for estimating epidemic model parameters
@@ -194,7 +205,7 @@ class Kamphir (PhyloKernel):
         trees = Phylo.parse(self.path_to_output_nwk, 'newick')
         return trees
 
-    def evaluate(self, trees=None):
+    def evaluate(self, trees=None, nthreads=None):
         """
         Wrapper to calculate mean kernel score for a simulated set
         of trees given proposed model parameters.
@@ -204,30 +215,44 @@ class Kamphir (PhyloKernel):
                 [trees] simulated trees (for debugging)
         """
         if trees is None:
-            trees = self.simulate()  # call rcolgem
+            trees = self.simulate()  # rcolgem returns generator
+            trees = list(trees)
 
-        if self.nthreads > 1:
-            output = mp.Queue()
+        if nthreads is None:
+            # user has option to specify number of threads
+            nthreads = self.nthreads
 
+        if nthreads > 1:
+            # output = mp.Queue()
             #processes = [mp.Process(target=self.compute,
             #                        args=(trees[i], output)) for i in range(self.nthreads)]
             #map(lambda p: p.start(), processes)
             #map(lambda p: p.join(), processes)
-            pool = mp.Pool(processes=self.nthreads)
+            ## collect results and calculate mean
+            #res = [output.get() for p in processes]
+            pool = mp.Pool(processes=nthreads)
+            try:
+                async_results = [apply_async(pool, self.compute, args=(tree,)) for tree in trees]
+            except:
+                # dump trees to file for debugging
+                
+                raise
 
-            # collect results and calculate mean
-            res = [output.get() for p in processes]
+            pool.close()  # prevent any more tasks from being added - once completed, workers exit
+            map(mp.pool.ApplyResult.wait, async_results)
+            results = [r.get() for r in async_results]
+
         else:
             # single-threaded
-            res = [self.compute(tree) for tree in trees]
+            results = [self.compute(tree) for tree in trees]
 
         try:
-            mean = sum(res)/len(res)
+            mean = sum(results)/len(results)
         except:
             print res
             raise
 
-        return mean, trees
+        return mean
     
     
     def abc_mcmc(self, logfile, max_steps=1e5, tol0=0.01, mintol=0.0005, decay=0.0025, skip=1):
@@ -253,7 +278,7 @@ class Kamphir (PhyloKernel):
         logfile.write(' '.join(['%s=%f' % (k, v['initial']) for k, v in self.settings.iteritems()]))
         logfile.write('\n')
         
-        cur_score, _ = self.evaluate()
+        cur_score = self.evaluate()
         step = 0
         logfile.write('\t'.join(['state', 'score', 'c1', 'c2', 'p', 'rho', 'N', 'T']))
         logfile.write('\n')
@@ -261,7 +286,7 @@ class Kamphir (PhyloKernel):
         # TODO: generalize screen and file log parameters
         while step < max_steps:
             self.proposal()  # update proposed values
-            next_score, _ = self.evaluate()
+            next_score = self.evaluate()
             if next_score > 1.0:
                 print 'ERROR: next_score (%f) greater than 1.0, dumping proposal and EXIT' % next_score
                 print self.proposal()
@@ -305,5 +330,4 @@ class Kamphir (PhyloKernel):
                                               self.current['t.end']])))
                 logfile.write('\n')
             step += 1
-
 

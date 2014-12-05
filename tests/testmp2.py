@@ -41,23 +41,25 @@ settings = {'c1': {'initial': 0.8,
                       'weight': 0.,  # fixed
                       'prior': stats.uniform(loc=520, scale=2600)}}
 
-kam = Kamphir(settings=settings, rscript='../simulate.DiffRisk.R', ncores=6)
+kam = Kamphir(settings=settings, rscript='../simulate.DiffRisk.R', ncores=6, nthreads=1)
 kam.set_target_tree('large1.nwk')
 
-#trees = kam.simulate()
-
-# multi-threaded
 t0 = time.time()
-res, _ = kam.evaluate(nthreads=6)
-elapsed = time.time() - t0
+trees = list(kam.simulate())
+print 'required', time.time() - t0, 'seconds to simulate trees'
 
-print 'MP', res, elapsed, 'seconds'
-
-# single-threaded
+# single-process
 t0 = time.time()
-res, _ = kam.evaluate()
+res = kam.evaluate(trees=trees)
 elapsed = time.time() - t0
 
 print 'SP', res, elapsed, 'seconds'
+
+# multi-process
+t0 = time.time()
+res = kam.evaluate(trees=trees, nthreads=12)
+elapsed = time.time() - t0
+
+print 'MP', res, elapsed, 'seconds'
 
 

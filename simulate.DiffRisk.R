@@ -1,6 +1,6 @@
 #!/usr/bin/env Rscript
-#args <- commandArgs(TRUE)
-args <- c('/tmp/input.csv', '/tmp/tips.csv', '/tmp/output.nwk')
+args <- commandArgs(TRUE)
+#args <- c('/tmp/input.csv', '/tmp/tips.csv', '/tmp/output.nwk')
 
 if (length(args) != 3) { stop('Usage: mapCasesToFSA.R <input CSV> <tips CSV> <output NWK>') }
 input.csv = args[1]  # simulation and model parameter settings

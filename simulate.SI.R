@@ -1,49 +1,104 @@
-library(rcolgem)
+#!/usr/bin/env Rscript
+args <- commandArgs(TRUE)
+#args <- c('/tmp/input.csv', '/tmp/tips.csv', '/tmp/output.nwk')
 
-demes <- c('I1', 'I2')
+if (length(args) != 3) { stop('Usage: mapCasesToFSA.R <input CSV> <tips CSV> <output NWK>') }
+input.csv = args[1]  # simulation and model parameter settings
+tips.csv = args[2]  # tip dates and states
+output.nwk = args[3]
 
-births <- rbind(c('parms$beta1*S*I1 / (S+I1+I2)', '0'), c('parms$beta2*S*I2 / (S+I1+I2)', '0'))
+if (!file.exists(input.csv)) {
+	stop('input file does not exist')
+}
+if (!file.exists(tips.csv)) {
+	stop('tip label file does not exist')
+}
+
+n.cores <- 6  # for simulation in parallel
+
+## default settings
+n.reps = 10
+fgyResolution = 500.  # large value gives smaller time step
+integrationMethod = 'rk4'
+t0 = 0
+t.end = 30.*52  # weeks
+
+N = 1000  # total population size
+
+# model parameters
+beta = 0.01
+gamma = 1/520.
+mu = 1/3640.
+
+
+
+# parse settings from control file
+inputs <- read.csv(input.csv, header=FALSE, na.strings='')
+for (i in 1:nrow(inputs)) {
+	eval(parse(text=paste(sep='', inputs[i,1], '<-', inputs[i,2])))
+}
+
+# initial population frequencies
+S = N-1
+I = 1
+x0 <- c(I=I, S=S)
+if (any(x0 < 0)) {
+	stop('Population sizes cannot be less than 0.')
+}
+
+parms <- list(beta=beta, gamma=gamma, mu=mu)
+if (any(parms<0)) {
+	stop ('No negative values permitted for model parameters.')
+}
+
+
+# define ODE system
+demes <- c('I')
+
+births <- rbind(c('parms$beta*S*I / (S+I)'))
 rownames(births)=colnames(births) <- demes
 
-migrations <- rbind(c('0', 'parms$alpha * I1'), c('0', '0'))
+migrations <- rbind(c('0'))
 rownames(migrations)=colnames(migrations) <- demes
 
-deaths <- c('parms$mu*I1', '(parms$mu+parms$gamma)*I2')
+deaths <- c('(parms$mu+parms$gamma)*I')
 names(deaths) <- demes
 
 # dynamics for susceptible class (S)
-nonDemeDynamics <- paste(sep='', '-parms$mu*S + parms$mu*(S+I1+I2)', '-S*(parms$beta1*I1 + parms$beta2*I2) / (S+I1+I2)')
+nonDemeDynamics <- paste(sep='', '-parms$mu*S + parms$mu*S + (parms$mu+parms$gamma)*I', '-S*(parms$beta*I) / (S+I)')
 names(nonDemeDynamics) <- 'S'
 
 
-
-# sample 100 individuals
-n.tips <- 1000
-sampleTimes <- rep(30.*52, times=n.tips)
-
-# this is a binary-valued matrix where number of columns equals demes
-# and number of rows equals tips in tree
-# row names should correspond to tip labels
-# for example:
-# sampleStates <- cbind( rep(1, length(sampleTimes)), rep(0, length(sampleTimes)) )
-sampleStates <- matrix(0, nrow=n.tips, ncol=length(demes))
-colnames(sampleStates) <- demes
-for (i in 1:n.tips) {
-	sampleStates[i, i%%2+1] <- 1
+n.tips <- nrow(tip.labels)
+if (sum(x0) < n.tips) {
+	stop ('Population size is smaller than requested number of tips.')
 }
-rownames(sampleStates) <- paste(1:n.tips, rep(c(1,2), times=n.tips/2), sep='_')
+
+# interpret missing tip dates as 0 (sampled at t.end)
+tip.labels$tip.height[is.na(tip.labels$tip.height)] <- 0
+
+if (max(tip.labels$tip.height) > t.end) {
+	stop('Max tip height in labels file exceeds t.end setting.')
+}
+if (any(tip.labels$tip.height < 0)) {
+	stop('Negative tip heights not allowed.')
+}
+
+# a vector indicating when each tip was sampled
+#sampleTimes <- rep(t.end, times=n.tips)
+sampleTimes <- t.end - tip.labels$tip.height
+
+sampleStates <- matrix(1, nrow=n.tips, ncol=length(demes))
+colnames(sampleStates) <- demes
+rownames(sampleStates) <- 1:n.tips
 
 
 # run this for numerical solution of ODE
 m <- nrow(births)
 maxSampleTime <- max(sampleTimes)
-fgyResolution <- 100.  # large value gives smaller time step
-integrationMethod <- 'rk4'
-parms <- list(beta1=0.01, beta2=0.001, alpha=1/1352., gamma=1/520., mu=1/3640.)
-t0 <- 0
 
-# simulate population of 1000 individuals
-x0 <- c(I1=1, I2=0, S=9999)
+
+require(rcolgem, quietly=TRUE)
 
 tfgy <- make.fgy( t0, maxSampleTime, births, deaths, nonDemeDynamics,  x0,  migrations=migrations,  parms=parms, fgyResolution = fgyResolution, integrationMethod = integrationMethod )
 
@@ -52,5 +107,4 @@ tfgy <- make.fgy( t0, maxSampleTime, births, deaths, nonDemeDynamics,  x0,  migr
 trees <- simulate.binary.dated.tree.fgy( tfgy[[1]], tfgy[[2]], tfgy[[3]], tfgy[[4]], sampleTimes, sampleStates, integrationMethod = integrationMethod, n.reps=10)
 'multiPhylo' -> class(trees)
 
-
-
+write.tree(trees, file=output.nwk, append=FALSE)

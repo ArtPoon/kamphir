@@ -1220,7 +1220,7 @@ simulate.binary.dated.tree.fgy <- function( times, births, migrations, demeSizes
 		require(parallel, quietly=TRUE)
 		mc <- getOption('mc.cores', n.cores)
 	}
-	
+
 #NOTE assumes times in equal increments
 #~ TODO mstates, ustates not in returned tree 
 s <- round(coef( lm(x ~ y,  data.frame(x = 1:length(times), y = sort(times))) )[1], digits=9)
@@ -1238,7 +1238,7 @@ if (s!=1) warning('Tree simulator assumes times given in equal increments')
 	sampleHeights <- maxSampleTime - sampleTimes 
 	ix <- sort(sampleHeights, index.return=TRUE)$ix
 	sortedSampleHeights <- sampleHeights[ix]
-	sortedSampleStates <- sampleStates[ix,]
+	sortedSampleStates <- as.matrix(sampleStates[ix,]) # if only one deme, this would otherwise return a vector
 	uniqueSortedSampleHeights <- unique(sortedSampleHeights)
 	
 	maxtime <- max(times)
@@ -1312,14 +1312,14 @@ if (s!=1) warning('Tree simulator assumes times given in equal increments')
 		}
 		dA <- function(h, A, parms, ...)
 		{
-			nsy <- not.sampled.yet(h) 
-			with(get.fgy(h), 
-			{ 
+			nsy <- not.sampled.yet(h)
+			with(get.fgy(h),
+			{
 				A_Y 	<- (A-nsy) / .Y
 				A_Y[is.nan(A_Y)] <- 0
 				csFpG 	<- colSums( .F + .G )
 				list( setNames( as.vector(
-				  .G %*% A_Y - csFpG * A_Y + (.F %*% A_Y) * pmax(1-A_Y, 0) 
+				  .G %*% A_Y - csFpG * A_Y + (.F %*% A_Y) * pmax(1-A_Y, 0)
 				  ), names(A)
 				))
 			})
@@ -1327,7 +1327,7 @@ if (s!=1) warning('Tree simulator assumes times given in equal increments')
 		AIntervals <- c(sortedSampleHeights[2:length(uniqueSortedSampleHeights)], maxHeight)
 		h0 						<- 0
 		sampled.at.h <- function(h) which(sortedSampleHeights==h)
-		
+
 		haxis <- seq(0, maxHeight, length.out=fgyParms$FGY_RESOLUTION)
 		AplusNotSampled <- ode( y = colSums(sortedSampleStates), times = haxis, func=dA, parms=NA, method = integrationMethod)[, 2:(m+1)]
 		Amono <- rowSums( AplusNotSampled)
@@ -1336,20 +1336,20 @@ if (s!=1) warning('Tree simulator assumes times given in equal increments')
 		Amono <- (max(Amono)  - Amono) / max(Amono)
 		nodeHeights <- sort( approx( Amono, haxis, xout=runif(n-1, 0, 1) )$y ) # careful of impossible node heights
 		uniqueSampleHeights <- unique( sampleHeights )
-		eventTimes <- c(uniqueSampleHeights, nodeHeights) 
+		eventTimes <- c(uniqueSampleHeights, nodeHeights)
 		isSampleEvent <- c(rep(TRUE, length(uniqueSampleHeights)), rep(FALSE, length(nodeHeights)))
 		ix <- sort(eventTimes, index.return=TRUE)$ix
 		eventTimes <- eventTimes[ix]
 		isSampleEvent <- isSampleEvent[ix]
-		
+
 		get.A.index <- function(h){
 			min(1 + floor(fgyParms$FGY_RESOLUTION * (h ) / ( maxHeight)), fgyParms$FGY_RESOLUTION )
 		}
 		get.A <- function(h){
 			i <- get.A.index(h)
-			AplusNotSampled[i,] - not.sampled.yet(h) 
+			AplusNotSampled[i,] - not.sampled.yet(h)
 		}
-	
+
 		S <- 1
 		L <- 0
 		# initialize variables; tips in order of sortedSampleHeights
@@ -1368,7 +1368,7 @@ if (s!=1) warning('Tree simulator assumes times given in equal increments')
 		heights[1:n] 	<- sortedSampleHeights
 		inEdgeMap 		<- rep(-1, Nnode + n)
 		outEdgeMap 		<- matrix(-1, (Nnode + n), 2)
-		parent 			<- 1:(Nnode + n) 
+		parent 			<- 1:(Nnode + n)
 		daughters 		<- matrix(-1, (Nnode + n), 2)
 		lstates 		<- matrix(-1, (Nnode + n), m)
 		mstates 		<- matrix(-1, (Nnode + n), m)
@@ -1376,16 +1376,16 @@ if (s!=1) warning('Tree simulator assumes times given in equal increments')
 		ssm 			<- matrix( 0, nrow=n, ncol=m)
 		lstates[1:n,]	<-  sortedSampleStates
 		mstates[1:n,] 	<- lstates[1:n,]
-		
+
 		isExtant 		<- rep(FALSE, Nnode+n)
 		isExtant[sampled.at.h(h0)] <- TRUE
-		extantLines <- which( isExtant) 
+		extantLines <- which( isExtant)
 		nExtant <- sum(isExtant)
-		
+
 		#print(paste(date(), 'simulate tree'))
-		
+
 		if (length(extantLines) > 1){
-			A0 <- colSums(sortedSampleStates[extantLines,] ) 
+			A0 <- colSums(sortedSampleStates[extantLines,] )
 		} else{
 			A0 <- sortedSampleStates[extantLines,]
 		}
@@ -1394,7 +1394,7 @@ if (s!=1) warning('Tree simulator assumes times given in equal increments')
 			h0 <- eventTimes[ih]
 			h1 <- eventTimes[ih+1]
 			fgy <- get.fgy(h1)
-			
+
 			nExtant <- sum(isExtant)
 
 
@@ -1405,12 +1405,12 @@ if (s!=1) warning('Tree simulator assumes times given in equal increments')
 			Q <- out[[1]]
 			A <- out[[2]]
 			L <- out[[3]]
-			
+
 			# clean output
 			if (is.nan(L)) {L <- Inf}
 			if (sum(is.nan(Q)) > 0) browser() #Q <- diag(length(A))
 			if (sum(is.nan(A)) > 0) A <- A0
-			
+
 			#update mstates
 			if ( nExtant > 1)
 			{
@@ -1423,9 +1423,9 @@ if (s!=1) warning('Tree simulator assumes times given in equal increments')
 				mstates[isExtant,] <- t( t(Q) %*% mstates[isExtant,] )
 				mstates[isExtant,] <- abs(mstates[isExtant,]) / sum(abs(mstates[isExtant,]))
 				#recalculate A
-				A <- mstates[isExtant,] 
+				A <- mstates[isExtant,]
 			}
-			
+
 			if (isSampleEvent[ih+1])
 			{
 				sat_h1 <- sampled.at.h(h1)
@@ -1440,7 +1440,8 @@ if (s!=1) warning('Tree simulator assumes times given in equal increments')
 				.Y <- fgy$.Y
 
 				if (nExtant==2 && sum(.Y) == 1) {
-				    # WARNING: this is a crude hack - afyp
+				    # WARNING: this is a crude hack to avoid divide-by-zero error when .Y contains a 0 entry
+				    # afyp
 				    .Y <- get.fgy(h0)$.Y  # use Y vector of previous event time
 				}
 
@@ -1452,15 +1453,15 @@ if (s!=1) warning('Tree simulator assumes times given in equal increments')
 
 	#~ 			if (F){
 	#~ 				astates <- matrix(  pmin(1, t(t(mstates[isExtant,])/.Y ) ),  nrow=nExtant  )
-	#~ 				tryCatch( 
+	#~ 				tryCatch(
 	#~ 					{ .lambdamat <- astates %*% .F %*% t(astates) }
 	#~ 				 , error = function(e) browser())
 	#~ 				diag(.lambdamat) <- 0
 	#~ 				uivi <- sample.int( nExtant^2, size=1, prob=as.vector(.lambdamat) )
 	#~ 				u_i <- 1 + ((uivi-1) %% nExtant)#row
 	#~ 				v_i <- 1 + floor( (uivi-1) / nExtant ) #column
-	#~ 				u <-  extantLines[ u_i ] 
-	#~ 				v <- extantLines[ v_i ] 
+	#~ 				u <-  extantLines[ u_i ]
+	#~ 				v <- extantLines[ v_i ]
 	#~ 			}
 	tryCatch({
 					.lambdamat <- (t(t(a)) %*% a) * .F
@@ -1487,15 +1488,15 @@ if (s!=1) warning('Tree simulator assumes times given in equal increments')
 					ustates[v,] <- mstates[v,]
 	#~ }, error = function(e) browser() )
 					#lambda_uv  <- as.vector( astates[u_i,] %*% .F %*% astates[v_i,] ) + as.vector( astates[v_i,] %*% .F %*% astates[u_i,] )
-					#lambda_uv <- ((astates[u_i,]) %*% t( astates[v_i,] )) * .F + ((astates[v_i,]) %*% t( astates[u_i,] )) * .F 
-					
+					#lambda_uv <- ((astates[u_i,]) %*% t( astates[v_i,] )) * .F + ((astates[v_i,]) %*% t( astates[u_i,] )) * .F
+
 					a_u <- pmin(1, mstates[u,] / .Y )
 					a_v <- pmin(1, mstates[v,] / .Y )
-					lambda_uv <- ((a_u) %*% t( a_v )) * .F + ((a_v) %*% t( a_u )) * .F 
-					
+					lambda_uv <- ((a_u) %*% t( a_v )) * .F + ((a_v) %*% t( a_u )) * .F
+
 					palpha <- rowSums(lambda_uv) / sum(lambda_uv)
 	#~ browser()
-					alpha <- lineageCounter 
+					alpha <- lineageCounter
 					lineageCounter <- lineageCounter + 1
 					isExtant[alpha] <- TRUE
 					isExtant[u] <- FALSE
@@ -1503,24 +1504,24 @@ if (s!=1) warning('Tree simulator assumes times given in equal increments')
 		#extantLines <- c(extantLines[-c(v_i, u_i)], alpha)
 					lstates[alpha,] = mstates[alpha,] <- palpha
 					heights[alpha] <- h1
-					
-					uv <- c(u, v) 
+
+					uv <- c(u, v)
 					inEdgeMap[uv] <- alpha#lineageCounter
 					outEdgeMap[alpha,] <- uv
 					parent[uv] <- alpha
 					parentheights[uv] <- h1
 					daughters[alpha,] <- uv
-					edge[u,] <- c(alpha, u) # 
-					edge.length[u] <- h1 - heights[u] 
-					edge[v,] <- c(alpha,v) # 
-					edge.length[v] <- h1 - heights[v] 
+					edge[u,] <- c(alpha, u) #
+					edge.length[u] <- h1 - heights[u]
+					edge[v,] <- c(alpha,v) #
+					edge.length[v] <- h1 - heights[v]
 			}
 		}
-		 
+
 		self<- list(edge=edge, edge.length=edge.length, Nnode=Nnode, tip.label=tip.label, heights=heights, parentheights=parentheights, parent=parent, daughters=daughters, lstates=lstates, mstates=mstates, ustates=ustates, m = m, sampleTimes = sampleTimes, sampleStates= sampleStates, maxSampleTime=maxSampleTime, inEdgeMap = inEdgeMap, outEdgeMap=outEdgeMap)
 		class(self) <- c("binaryDatedTree", "phylo")
-		
-		#~ <reorder edges for compatibility with ape::phylo functions> 
+
+		#~ <reorder edges for compatibility with ape::phylo functions>
 		#~ (ideally ape would not care about the edge order, but actually most functions assume a certain order)
 		sampleTimes2 <- sampleTimes[names(sortedSampleHeights)]
 		sampleStates2 <- lstates[1:n,]; rownames(sampleStates2) <- tip.label
@@ -1531,17 +1532,17 @@ if (s!=1) warning('Tree simulator assumes times given in equal increments')
 		}, error = function(e) browser())
 
 		sampleTimes2 <- sampleTimes2[phylo$tip.label];
-		sampleStates2 <- sampleStates2[phylo$tip.label,]; 
+		sampleStates2 <- sampleStates2[phylo$tip.label,];
 		bdt <- binaryDatedTree(phylo, sampleTimes2, sampleStates = sampleStates2)
 		bdt
 	}
-	
+
 	if (n.cores > 1) {
 		result <- mclapply(1:n.reps, run1)
 	} else {
 		result <- lapply(1:n.reps, run1)
 	}
-	
+
 	return (result)
 }
 

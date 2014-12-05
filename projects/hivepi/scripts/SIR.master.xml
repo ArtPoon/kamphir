@@ -1,0 +1,39 @@
+<!-- Simulate transmission trees from an SIR epidemic model with
+     exactly n leaves. -->
+
+<beast version='2.0' namespace='master
+                               :master.model
+                               :master.conditions
+                               :master.outputs
+                               :master.postprocessors'>
+  <run spec='InheritanceEnsemble'
+       nTraj="10"
+       samplePopulationSizes="true"
+       verbosity="1">
+
+    <model spec='Model' id='model'>
+      <population spec='Population' id='S' populationName='S'/>
+      <population spec='Population' id='I' populationName='I'/>
+      <population spec='Population' id='R' populationName='R'/>
+      
+      <reaction spec='Reaction' reactionName="Infection" rate="0.005">
+          S + I -> 2I
+      </reaction>
+      <reaction spec='Reaction' reactionName="Recovery" rate="0.15">
+          I -> R
+      </reaction>
+    </model>
+    
+    <initialState spec='InitState'>
+      <populationSize spec='PopulationSize' population='@S' size='999'/>
+      <lineageSeed spec='Individual' population='@I'/>
+    </initialState>
+
+    <!-- Simulation will terminate when no lineages remain -->
+    <lineageEndCondition spec='LineageEndCondition' nLineages="0"/>
+    
+    
+    <output spec='NewickOutput' fileName='SIRTree_output.newick'/>
+  </run>
+</beast>
+

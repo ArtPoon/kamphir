@@ -1,14 +1,13 @@
 """
-Driver script for fitting a differential risk SI model to tree shape.
+Driver script for fitting a simple SI model to tree shape.
 """
 import os
 import argparse
-import json
 from kamphir import Kamphir
 
-parser = argparse.ArgumentParser(description='Fit a differential risk SI model to '
-                                             'the shape of a phylogenetic tree using'
-                                             'kernel-ABC',
+parser = argparse.ArgumentParser(description='Fit a simple SI model to '
+                                             'the shape of a phylogenetic tree using '
+                                             'kernel-assisted ABC-MCMC',
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
 parser.add_argument('nwkfile', help='File containing Newick tree string.')
@@ -22,7 +21,7 @@ args = parser.parse_args()
 
 # TODO: allow user to import settings from JSON?
 # initialize model parameters - note variable names must match R script
-handle = open('tests/settings.json', 'rU')
+handle = open('tests/settings_si.json', 'rU')
 settings = json.loads(handle.read())
 handle.close()
 
