@@ -11,7 +11,7 @@ from copy import deepcopy
 import time
 
 
-class Fitter (PhyloKernel):
+class Kamphir (PhyloKernel):
     """
     Derived class of PhyloKernel for estimating epidemic model parameters
     by simulating coalescent trees and comparing simulations to the reference
@@ -27,7 +27,8 @@ class Fitter (PhyloKernel):
         'max': maximum parameter value (optional)
     """
     
-    def __init__(self, settings, ncores=1, nreps=10):
+    def __init__(self, settings, rscript='simulate.DiffRisk.R',
+                 ncores=1, nreps=10, nthreads=1):
         # call base class constructor
         PhyloKernel.__init__(self)
 
@@ -45,12 +46,14 @@ class Fitter (PhyloKernel):
         self.path_to_input_csv = '/tmp/input.csv'
         self.path_to_label_csv = '/tmp/tips.csv'
         self.path_to_output_nwk = '/tmp/output.nwk'
+        self.path_to_Rscript = rscript
 
         self.ntips = None
         self.tip_heights = []
         self.ref_denom = None  # kernel score of target tree to itself
-        self.ncores = ncores
+        self.ncores = ncores  # number of processes for rcolgem simulation
         self.nreps = nreps
+        self.nthreads = nthreads  # number of processes for PhyloKernel
     
     def set_target_tree(self, path, delimiter=None, position=None):
         """
@@ -136,8 +139,27 @@ class Fitter (PhyloKernel):
         for key in params.iterkeys():
             pass
             # work in progress
-        
-    def evaluate (self):
+
+    def compute(self, tree, output=None):
+        """
+        Calculate kernel score.  Allow for MP execution.
+        """
+        tree.root.branch_length = 0.
+        tree.ladderize()
+        self.normalize_tree(tree, 'mean')
+        if not hasattr(tree.root, 'production'):
+            self.annotate_tree(tree)
+        k = self.kernel(self.target_tree, tree)
+        tree_denom = self.kernel(tree, tree)
+        knorm = k / math.sqrt(self.ref_denom * tree_denom)
+
+        if output is None:
+            return knorm
+
+        output.put(knorm)  # MP
+
+
+    def simulate(self):
         """
         Estimate the mean kernel distance between the reference tree and
         trees simulated under the given model parameters.
@@ -163,30 +185,52 @@ class Fitter (PhyloKernel):
         handle.close()
 
         # external call to Rscript
-        os.system('Rscript simulate.DiffRisk.R %s %s %s' %
-                  (self.path_to_input_csv,
-                   self.path_to_label_csv,
-                   self.path_to_output_nwk)
-        )
+        os.system('Rscript %s %s %s %s' % (self.path_to_Rscript,
+                                           self.path_to_input_csv,
+                                           self.path_to_label_csv,
+                                           self.path_to_output_nwk))
 
         # retrieve trees from output file
         trees = Phylo.parse(self.path_to_output_nwk, 'newick')
-        res = []
-        for tree in trees:
-            tree.root.branch_length = 0.
-            tree.ladderize()
-            self.normalize_tree(tree, 'mean')
-            self.annotate_tree(tree)
-            k = self.kernel(self.target_tree, tree)
-            #print k/self.ref_denom  # examine variation among replicates
-            tree_denom = self.kernel(tree, tree)  # normalize
-            res.append(k / math.sqrt(self.ref_denom * tree_denom))
+        return trees
 
-        # return expected value across replicates
-        return sum(res)/len(res)
+    def evaluate(self, trees=None):
+        """
+        Wrapper to calculate mean kernel score for a simulated set
+        of trees given proposed model parameters.
+        :param trees = list of Phylo Tree objects from simulations
+                        in case we want to re-evaluate mean score (debugging)
+        :return [mean] mean kernel score
+                [trees] simulated trees (for debugging)
+        """
+        if trees is None:
+            trees = self.simulate()  # call rcolgem
+
+        if self.nthreads > 1:
+            output = mp.Queue()
+
+            #processes = [mp.Process(target=self.compute,
+            #                        args=(trees[i], output)) for i in range(self.nthreads)]
+            #map(lambda p: p.start(), processes)
+            #map(lambda p: p.join(), processes)
+            pool = mp.Pool(processes=self.nthreads)
+
+            # collect results and calculate mean
+            res = [output.get() for p in processes]
+        else:
+            # single-threaded
+            res = [self.compute(tree) for tree in trees]
+
+        try:
+            mean = sum(res)/len(res)
+        except:
+            print res
+            raise
+
+        return mean, trees
     
     
-    def abc_mcmc (self, logfile, max_steps=1e5, tol0=0.01, mintol=0.0005, decay=0.0025, skip=1):
+    def abc_mcmc(self, logfile, max_steps=1e5, tol0=0.01, mintol=0.0005, decay=0.0025, skip=1):
         """
         Use Approximate Bayesian Computation to sample from posterior
         density over model parameter space, given one or more observed
@@ -209,7 +253,7 @@ class Fitter (PhyloKernel):
         logfile.write(' '.join(['%s=%f' % (k, v['initial']) for k, v in self.settings.iteritems()]))
         logfile.write('\n')
         
-        cur_score = self.evaluate()
+        cur_score, _ = self.evaluate()
         step = 0
         logfile.write('\t'.join(['state', 'score', 'c1', 'c2', 'p', 'rho', 'N', 'T']))
         logfile.write('\n')
@@ -217,7 +261,7 @@ class Fitter (PhyloKernel):
         # TODO: generalize screen and file log parameters
         while step < max_steps:
             self.proposal()  # update proposed values
-            next_score = self.evaluate()
+            next_score, _ = self.evaluate()
             if next_score > 1.0:
                 print 'ERROR: next_score (%f) greater than 1.0, dumping proposal and EXIT' % next_score
                 print self.proposal()

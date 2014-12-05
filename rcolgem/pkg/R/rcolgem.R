@@ -1396,7 +1396,9 @@ if (s!=1) warning('Tree simulator assumes times given in equal increments')
 			fgy <- get.fgy(h1)
 			
 			nExtant <- sum(isExtant)
-			
+
+
+
 			#get A0, process new samples, calculate state of new lines
 			A0 <- get.A(h0) #A[get.A.index(h0),]
 			out <- .solve.Q.A.L(h0, h1, A0,  L)
@@ -1436,11 +1438,18 @@ if (s!=1) warning('Tree simulator assumes times given in equal increments')
 				.F <- fgy$.F
 				.G <- fgy$.G
 				.Y <- fgy$.Y
+
+				if (nExtant==2 && sum(.Y) == 1) {
+				    # WARNING: this is a crude hack - afyp
+				    .Y <- get.fgy(h0)$.Y  # use Y vector of previous event time
+				}
+
 					a <- A / .Y
-					
+
 		#nextant <- length(extantLines)
 		extantLines <- which(isExtant)
-				
+
+
 	#~ 			if (F){
 	#~ 				astates <- matrix(  pmin(1, t(t(mstates[isExtant,])/.Y ) ),  nrow=nExtant  )
 	#~ 				tryCatch( 
@@ -1456,10 +1465,18 @@ if (s!=1) warning('Tree simulator assumes times given in equal increments')
 	tryCatch({
 					.lambdamat <- (t(t(a)) %*% a) * .F
 
+                    # determine transmission type from deme A to deme B
+                    # m is number of demes
+                    # m^2 is number of transmission types
 					kl <- sample.int( m^2, size=1, prob=as.vector(.lambdamat) )
 					k <- 1 + ((kl-1) %% m)#row
 					l <- 1 + floor( (kl-1) / m ) #column
+
+					# mstates stores probabilities of deme membership (columns)
+					#  for all lineages (rows)
 					probstates <- mstates[extantLines,]
+
+					# which extant lineages are source and recipient?
 					u_i <- sample.int(  nExtant, size=1, prob = probstates[,k])
 					probstates[u_i,] <- 0 # cant transmit to itself
 					u <- extantLines[u_i]
@@ -1507,8 +1524,12 @@ if (s!=1) warning('Tree simulator assumes times given in equal increments')
 		#~ (ideally ape would not care about the edge order, but actually most functions assume a certain order)
 		sampleTimes2 <- sampleTimes[names(sortedSampleHeights)]
 		sampleStates2 <- lstates[1:n,]; rownames(sampleStates2) <- tip.label
+
 	#~ browser()
-		phylo <- read.tree(text=write.tree(self) )
+	    tryCatch ({
+		    phylo <- read.tree(text=write.tree(self) )
+		}, error = function(e) browser())
+
 		sampleTimes2 <- sampleTimes2[phylo$tip.label];
 		sampleStates2 <- sampleStates2[phylo$tip.label,]; 
 		bdt <- binaryDatedTree(phylo, sampleTimes2, sampleStates = sampleStates2)

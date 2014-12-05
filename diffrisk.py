@@ -4,7 +4,7 @@ Driver script for fitting a differential risk SI model to tree shape.
 import os
 import scipy.stats as stats
 import argparse
-from kernelABC import Fitter
+from kamphir import Kamphir
 
 parser = argparse.ArgumentParser(description='Fit a differential risk SI model to '
                                              'the shape of a phylogenetic tree using'
@@ -25,13 +25,13 @@ args = parser.parse_args()
 settings = {'c1': {'initial': 0.8,
                    'min': 0.1,
                    'max': 10.,
-                   'sigma': 0.05,
+                   'sigma': 0.1,
                    'weight': 1.,
                    'prior': stats.lognorm(1)},
             'c2': {'initial': 1.0,
                    'min': 0.1,
                    'max': 10.,
-                   'sigma': 0.25,
+                   'sigma': 0.1,
                    'weight': 1.,
                    'prior': stats.lognorm(0.5)},
             'p': {'initial': 0.5,
@@ -46,10 +46,10 @@ settings = {'c1': {'initial': 0.8,
                     'sigma': 0.05,
                     'weight': 1.,
                     'prior': stats.uniform(loc=0, scale=1)},
-            'N': {'initial': 10000,
+            'N': {'initial': 20000,
                   'min': 1000,
                   'max': 1e8,
-                  'sigma': 5000,
+                  'sigma': 2000,
                   'weight': 1.,
                   'prior': stats.norm(loc=8000, scale=3000)},
             't.end': {'initial': 30*52.,
@@ -60,8 +60,8 @@ settings = {'c1': {'initial': 0.8,
                       'prior': stats.uniform(loc=520, scale=2600)}}
 
 
-fitter = Fitter(settings, ncores=6)
-fitter.set_target_tree(args.nwkfile)
+kam = Kamphir(settings, ncores=6, nthreads=6)
+kam.set_target_tree(args.nwkfile)
 
 
 # prevent previous log files from being overwritten
@@ -72,7 +72,7 @@ while os.path.exists(args.logfile+modifier):
     modifier = '.%d' % tries
 
 logfile = open(args.logfile+modifier, 'w')
-fitter.abc_mcmc(logfile,
+kam.abc_mcmc(logfile,
                 skip=args.skip,
                 tol0=args.tol0,
                 mintol=args.mintol,

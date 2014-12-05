@@ -4,7 +4,7 @@
 from Bio import Phylo
 from numpy import zeros
 import math
-
+import multiprocessing as mp
 
 class PhyloKernel:
     def __init__(self, 
@@ -151,7 +151,7 @@ class PhyloKernel:
         
         self.is_kmat_computed = True
 
-    def kernel(self, t1, t2):
+    def kernel(self, t1, t2, myrank=None, nprocs=None, output=None):
         """
         Recursive function for computing tree convolution
         kernel.  Adapted from Moschitti (2006) Making tree kernels
@@ -162,17 +162,24 @@ class PhyloKernel:
         nodes1 = t1.get_nonterminals(order='postorder')
         nodes2 = t2.get_nonterminals(order='postorder')
         k = 0
+        if not hasattr(nodes1[0], 'production'):
+            self.annotate_tree(t1)
+        if not hasattr(nodes2[0], 'production'):
+            self.annotate_tree(t2)
 
         dp_matrix = [[0 for n2 in nodes2] for n1 in nodes1]
         
         # iterate over non-terminals, visiting children before parents
-        for n1 in nodes1:
+        for ni, n1 in enumerate(nodes1):
+            if myrank is not None and nprocs and ni % nprocs != myrank:
+                continue
+
             for n2 in nodes2:
                 if n1.production == n2.production:
                     bl1 = [c1.branch_length for c1 in n1.clades]
                     bl2 = [c2.branch_length for c2 in n2.clades]
                     res = self.decayFactor * math.exp( -1. / self.gaussFactor 
-                            * (n1.sqbl + n2.sqbl - 2*sum([(bl1[i]*bl2[i]) for i in range(len(bl1)) ]) ))
+                            * (n1.sqbl + n2.sqbl - 2*sum([(bl1[i]*bl2[i]) for i in range(len(bl1))])))
                         
                     for cn1 in range(2):
                         c1 = n1.clades[cn1]
@@ -189,4 +196,35 @@ class PhyloKernel:
             
                     dp_matrix[n1.index][n2.index] = res
                     k += res
+
+        if output is None:
+            return k
+
+        output.put(k)
+
+    def kernel_parallel(self, t1, t2, nthreads):
+        """
+        Wrapper around kernel().
+        Attempt to use Python multiprocessing module to speed up computation.
+        Borrowing code snippets from:
+          http://sebastianraschka.com/Articles/2014_multiprocessing_intro.html
+
+        :param t1: first Phylo.Tree to be compared
+        :param t2: second Phylo.Tree to be compared
+        :param nthreads: number of threads in pool
+        :return: kernel score (double)
+        """
+        # FIXME: this gives the wrong answer
+        output = mp.Queue()
+        processes = [mp.Process(target=self.kernel, args=(t1, t2, i, nthreads, output))
+                     for i in range(nthreads)]
+        for p in processes:
+            p.start()
+
+        # exit completed processes
+        for p in processes:
+            p.join()
+
+        # collect results and calculate sum
+        k = sum([output.get() for p in processes])
         return k
