@@ -39,9 +39,9 @@ class Kamphir (PhyloKernel):
     """
     
     def __init__(self, settings, rscript='simulate.DiffRisk.R',
-                 ncores=1, nreps=10, nthreads=1):
+                 ncores=1, nreps=10, nthreads=1, **kwargs):
         # call base class constructor
-        PhyloKernel.__init__(self)
+        PhyloKernel.__init__(self, **kwargs)
 
         self.settings = deepcopy(settings)
         self.target_tree = None
@@ -235,7 +235,7 @@ class Kamphir (PhyloKernel):
                 async_results = [apply_async(pool, self.compute, args=(tree,)) for tree in trees]
             except:
                 # dump trees to file for debugging
-                
+
                 raise
 
             pool.close()  # prevent any more tasks from being added - once completed, workers exit
