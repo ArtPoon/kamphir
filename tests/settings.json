@@ -10,7 +10,7 @@
     "N": {
         "weight": 1.0,
         "min": 1000,
-        "max": 100000000.0,
+        "max": 1000000.0,
         "initial": 20000,
         "prior": "norm(loc=8000, scale=3000)",
         "sigma": 2000

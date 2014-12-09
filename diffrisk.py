@@ -18,7 +18,7 @@ parser.add_argument('-skip', default=10, help='Number of steps in ABC-MCMC to sk
 parser.add_argument('-tol0', default=0.005, help='Initial tolerance for simulated annealing.')
 parser.add_argument('-mintol', default=0.001, help='Minimum tolerance for simulated annealing.')
 parser.add_argument('-toldecay', default=0.0025, help='Simulated annealing decay rate.')
-parser.add_argument('-kdecay', default=0.2, help='Decay factor for tree shape kernel.  '
+parser.add_argument('-kdecay', default=0.2, type=float, help='Decay factor for tree shape kernel.  '
                                                  'Lower values penalize large subset trees more severely.')
 
 parser.add_argument('-ncores', default=6, help='Number of processes for tree simulation (rcolgem).')

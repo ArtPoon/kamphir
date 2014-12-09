@@ -1390,13 +1390,13 @@ if (s!=1) warning('Tree simulator assumes times given in equal increments')
 			A0 <- sortedSampleStates[extantLines,]
 		}
 		lineageCounter <- n+1
-		for (ih in 1:(length(eventTimes)-1)){
+
+		for (ih in 1:(length(eventTimes)-1)) {
 			h0 <- eventTimes[ih]
 			h1 <- eventTimes[ih+1]
 			fgy <- get.fgy(h1)
 
 			nExtant <- sum(isExtant)
-
 
 
 			#get A0, process new samples, calculate state of new lines
@@ -1439,10 +1439,10 @@ if (s!=1) warning('Tree simulator assumes times given in equal increments')
 				.G <- fgy$.G
 				.Y <- fgy$.Y
 
-				if (nExtant==2 && sum(.Y) == 1) {
-				    # WARNING: this is a crude hack to avoid divide-by-zero error when .Y contains a 0 entry
-				    # afyp
-				    .Y <- get.fgy(h0)$.Y  # use Y vector of previous event time
+				if (nExtant>1 && is.element(0, .Y)) {
+				    # last two lineages have not coalesced by simulation time zero
+				    # reject this tree and return NA to prevent divide-by-zero error
+				    return(NA)
 				}
 
 					a <- A / .Y
@@ -1515,27 +1515,25 @@ if (s!=1) warning('Tree simulator assumes times given in equal increments')
 					edge.length[u] <- h1 - heights[u]
 					edge[v,] <- c(alpha,v) #
 					edge.length[v] <- h1 - heights[v]
-			}
-		}
+			} # end else
+		} # end for loop
 
-		self<- list(edge=edge, edge.length=edge.length, Nnode=Nnode, tip.label=tip.label, heights=heights, parentheights=parentheights, parent=parent, daughters=daughters, lstates=lstates, mstates=mstates, ustates=ustates, m = m, sampleTimes = sampleTimes, sampleStates= sampleStates, maxSampleTime=maxSampleTime, inEdgeMap = inEdgeMap, outEdgeMap=outEdgeMap)
-		class(self) <- c("binaryDatedTree", "phylo")
-
-		#~ <reorder edges for compatibility with ape::phylo functions>
-		#~ (ideally ape would not care about the edge order, but actually most functions assume a certain order)
-		sampleTimes2 <- sampleTimes[names(sortedSampleHeights)]
-		sampleStates2 <- lstates[1:n,]; rownames(sampleStates2) <- tip.label
-
-	#~ browser()
-	    tryCatch ({
+        tryCatch ({
+    		self<- list(edge=edge, edge.length=edge.length, Nnode=Nnode, tip.label=tip.label, heights=heights, parentheights=parentheights, parent=parent, daughters=daughters, lstates=lstates, mstates=mstates, ustates=ustates, m = m, sampleTimes = sampleTimes, sampleStates= sampleStates, maxSampleTime=maxSampleTime, inEdgeMap = inEdgeMap, outEdgeMap=outEdgeMap)
+	    	class(self) <- c("binaryDatedTree", "phylo")
+	    	#~ <reorder edges for compatibility with ape::phylo functions>
+	    	#~ (ideally ape would not care about the edge order, but actually most functions assume a certain order)
+	    	sampleTimes2 <- sampleTimes[names(sortedSampleHeights)]
+	    	sampleStates2 <- lstates[1:n,]; rownames(sampleStates2) <- tip.label
+	        #~ browser()
 		    phylo <- read.tree(text=write.tree(self) )
-		}, error = function(e) browser())
 
-		sampleTimes2 <- sampleTimes2[phylo$tip.label];
-		sampleStates2 <- sampleStates2[phylo$tip.label,];
-		bdt <- binaryDatedTree(phylo, sampleTimes2, sampleStates = sampleStates2)
-		bdt
-	}
+    		sampleTimes2 <- sampleTimes2[phylo$tip.label];
+    		sampleStates2 <- sampleStates2[phylo$tip.label,];
+    		bdt <- binaryDatedTree(phylo, sampleTimes2, sampleStates = sampleStates2)
+		}, error = function(e) browser())
+		return(bdt)
+	} # end run1()
 
 	if (n.cores > 1) {
 		result <- mclapply(1:n.reps, run1)
@@ -1543,7 +1541,8 @@ if (s!=1) warning('Tree simulator assumes times given in equal increments')
 		result <- lapply(1:n.reps, run1)
 	}
 
-	return (result)
+    # exclude NA values
+	return (result[!is.na(result)])
 }
 
 

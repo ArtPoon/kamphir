@@ -10,6 +10,8 @@ import random
 from copy import deepcopy
 import time
 
+import json
+
 
 # see http://stackoverflow.com/questions/8804830/python-multiprocessing-pickling-error/24673524#24673524
 import dill
@@ -217,6 +219,10 @@ class Kamphir (PhyloKernel):
         if trees is None:
             trees = self.simulate()  # rcolgem returns generator
             trees = list(trees)
+            if len(trees) < self.ntrees:
+                print 'WARNING: tree sample size reduced to', len(trees)
+                if len(trees) == 0:
+                    return 0.
 
         if nthreads is None:
             # user has option to specify number of threads
@@ -253,8 +259,8 @@ class Kamphir (PhyloKernel):
             raise
 
         return mean
-    
-    
+
+
     def abc_mcmc(self, logfile, max_steps=1e5, tol0=0.01, mintol=0.0005, decay=0.0025, skip=1):
         """
         Use Approximate Bayesian Computation to sample from posterior
@@ -268,15 +274,8 @@ class Kamphir (PhyloKernel):
         logfile.write('# start time: %s\n' % time.ctime())
         logfile.write('# input file: %s\n' % self.path_to_tree)
         logfile.write('# annealing settings: tol0=%f, mintol=%f, decay=%f\n' % (tol0, mintol, decay))
-        
-        logfile.write('# proposal settings: ')
-        logfile.write('\t'.join(['%s:(%f,%f); s=%f; w=%1.2f' % (k, v['min'], v['max'], v['sigma'], v['weight']) 
-                                for k, v in self.settings.iteritems()]))
-        logfile.write('\n')
-        
-        logfile.write('# initial: ')
-        logfile.write(' '.join(['%s=%f' % (k, v['initial']) for k, v in self.settings.iteritems()]))
-        logfile.write('\n')
+        logfile.write('# MCMC settings: %s\n' % json.dumps(self.settings))
+        logfile.write('# kernel settings: decay=%f\n' % self.decayFactor)
         
         cur_score = self.evaluate()
         step = 0
