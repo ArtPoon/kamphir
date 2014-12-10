@@ -9,7 +9,7 @@ import random
 
 from copy import deepcopy
 import time
-
+from cStringIO import StringIO
 import json
 
 
@@ -40,7 +40,7 @@ class Kamphir (PhyloKernel):
         'max': maximum parameter value (optional)
     """
     
-    def __init__(self, settings, rscript='simulate.DiffRisk.R',
+    def __init__(self, settings, rscript,
                  ncores=1, nreps=10, nthreads=1, **kwargs):
         # call base class constructor
         PhyloKernel.__init__(self, **kwargs)
@@ -102,7 +102,7 @@ class Kamphir (PhyloKernel):
                     if tipdate > maxdate:
                         maxdate = tipdate
                 except:
-                    print 'Warning: Failed to parse tipdate from label', tip.name
+                    print 'listng: Failed to parse tipdate from label', tip.name
                     tipdate = None  # gets interpreted as 0
                     pass
 
@@ -164,7 +164,8 @@ class Kamphir (PhyloKernel):
             self.annotate_tree(tree)
         k = self.kernel(self.target_tree, tree)
         tree_denom = self.kernel(tree, tree)
-        knorm = k / math.sqrt(self.ref_denom * tree_denom)
+        #knorm = k / math.sqrt(self.ref_denom * tree_denom)
+        knorm = math.exp(math.log(k) - 0.5*(math.log(self.ref_denom) + math.log(tree_denom)))
 
         if output is None:
             return knorm
@@ -204,7 +205,20 @@ class Kamphir (PhyloKernel):
                                            self.path_to_output_nwk))
 
         # retrieve trees from output file
-        trees = Phylo.parse(self.path_to_output_nwk, 'newick')
+        trees = []
+        handle = open(self.path_to_output_nwk, 'rU')
+        for line in handle:
+            try:
+                tree = Phylo.read(StringIO(line), 'newick')
+            except:
+                # NewickError: Number of open/close parentheses do not match
+                print 'WARNING: Discarding tree with mismatched parentheses.'
+                print line
+                continue
+            trees.append(tree)
+        handle.close()
+
+        #trees = Phylo.parse(self.path_to_output_nwk, 'newick')
         return trees
 
     def evaluate(self, trees=None, nthreads=None):
@@ -217,11 +231,12 @@ class Kamphir (PhyloKernel):
                 [trees] simulated trees (for debugging)
         """
         if trees is None:
-            trees = self.simulate()  # rcolgem returns generator
-            trees = list(trees)
-            if len(trees) < self.ntrees:
-                print 'WARNING: tree sample size reduced to', len(trees)
+            trees = self.simulate()
+
+            if len(trees) < self.nreps:
+                #print 'WARNING: tree sample size reduced to', len(trees)
                 if len(trees) == 0:
+                    print 'WARNING: none of the trees managed to coalesce in simulation time - returning 0.'
                     return 0.
 
         if nthreads is None:
@@ -261,7 +276,7 @@ class Kamphir (PhyloKernel):
         return mean
 
 
-    def abc_mcmc(self, logfile, max_steps=1e5, tol0=0.01, mintol=0.0005, decay=0.0025, skip=1):
+    def abc_mcmc(self, logfile, max_steps=1e5, tol0=0.01, mintol=0.0005, decay=0.0025, skip=1, first_step=0):
         """
         Use Approximate Bayesian Computation to sample from posterior
         density over model parameter space, given one or more observed
@@ -278,7 +293,7 @@ class Kamphir (PhyloKernel):
         logfile.write('# kernel settings: decay=%f\n' % self.decayFactor)
         
         cur_score = self.evaluate()
-        step = 0
+        step = first_step  # in case of restarting chain
         logfile.write('\t'.join(['state', 'score', 'c1', 'c2', 'p', 'rho', 'N', 'T']))
         logfile.write('\n')
 
@@ -329,4 +344,106 @@ class Kamphir (PhyloKernel):
                                               self.current['t.end']])))
                 logfile.write('\n')
             step += 1
+
+if __name__ == '__main__':
+    import os
+    import argparse
+    import json
+    from multiprocessing import cpu_count
+
+    parser = argparse.ArgumentParser(description='KAMPHIR - Kernel-assisted ABC-MCMC for '
+                                                 'Phylodynamic Inference\n==============='
+                                                 '======================================='
+                                                 '=======',
+                                     formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+                                     epilog='KAMPHIR uses Approximate Bayesian Computation to fit any model that '
+                                            'can be used to generate a tree.')
+
+    # first required arg is simulation Rscript
+    parser.add_argument('rscript', help='Rscript with model specification for simulating trees.')
+    parser.add_argument('settings',  help='JSON file containing model parameter settings.')
+
+    # log settings
+    parser.add_argument('nwkfile', help='File containing Newick tree string.')
+    parser.add_argument('logfile', help='File to log ABC-MCMC traces.')
+    parser.add_argument('-skip', default=10, help='Number of steps in ABC-MCMC to skip for log.')
+    parser.add_argument('-overwrite', action='store_true', help='Allow overwrite of log file.')
+    parser.add_argument('-restart', action='store_true', help='Restart chain from a log file.')
+
+    # annealing settings
+    parser.add_argument('-tol0', type=float, default=0.005,
+                        help='Initial tolerance for simulated annealing.')
+    parser.add_argument('-mintol', type=float, default=0.001,
+                        help='Minimum tolerance for simulated annealing.')
+    parser.add_argument('-toldecay', type=float, default=0.0025,
+                        help='Simulated annealing decay rate.')
+
+    # kernel settings
+    parser.add_argument('-kdecay', default=0.2, type=float,
+                        help='Decay factor for tree shape kernel. Lower values penalize large subset '
+                             'trees more severely.')
+    parser.add_argument('-tau', default=1.0, type=float,
+                        help='Precision for Gaussian radial basis function penalizing branch length '
+                             'discordance. Lower values penalize more severely.')
+    parser.add_argument('-normalize', default='none', choices=['none', 'mean', 'median'],
+                        help='Scale branch lengths so trees of different lengths can be compared.')
+
+    # parallelization
+    parser.add_argument('-ncores', type=int, default=cpu_count(),
+                        help='Number of processes for tree simulation (rcolgem).')
+    parser.add_argument('-nthreads', type=int, default=cpu_count(),
+                        help='Number of processes for kernel computation.')
+
+    args = parser.parse_args()
+
+
+    # start analysis
+    if args.restart:
+        # TODO: work in progress
+        logfile = open(args.logfile, 'rU')
+        for line in logfile:
+            if line.startswith('#'):
+                if line.startswith('# MCMC settings:'):
+                    settings = json.loads(line.split('settings: ')[-1])
+                if line.startswith('# annealing settings:'):
+                    tol0, mintol, decay = map(float, line.strip('\n').split('settings: ')[-1].split(', '))
+                if line.startswith('# kernel settings:'):
+                    kdecay = float(line.strip('\n').split('=')[-1])
+            else:
+                if line.endswith('\n'):
+                    # complete row
+                    items = line.strip('\n').split()
+
+        logfile.close()
+
+    else:
+        # initialize model parameters - note variable names must match R script
+        handle = open(args.settings, 'rU')
+        settings = json.loads(handle.read())
+        handle.close()
+
+        kam = Kamphir(settings=settings,
+                      rscript=args.rscript,
+                      ncores=args.ncores,
+                      nthreads=args.nthreads,
+                      decayFactor=args.kdecay,
+                      normalize=args.normalize,
+                      gaussFactor=args.tau)
+
+        kam.set_target_tree(args.nwkfile)
+
+        # prevent previous log files from being overwritten
+        modifier = ''
+        tries = 0
+        while os.path.exists(args.logfile+modifier) and not args.overwrite:
+            tries += 1
+            modifier = '.%d' % tries
+
+        logfile = open(args.logfile+modifier, 'w')
+        kam.abc_mcmc(logfile,
+                        skip=args.skip,
+                        tol0=args.tol0,
+                        mintol=args.mintol,
+                        decay=args.toldecay)
+        logfile.close()
 

@@ -1408,7 +1408,7 @@ if (s!=1) warning('Tree simulator assumes times given in equal increments')
 
 			# clean output
 			if (is.nan(L)) {L <- Inf}
-			if (sum(is.nan(Q)) > 0) browser() #Q <- diag(length(A))
+			if (sum(is.nan(Q)) > 0) { return(NA) }#browser() #Q <- diag(length(A))
 			if (sum(is.nan(A)) > 0) A <- A0
 
 			#update mstates
