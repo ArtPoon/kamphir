@@ -68,7 +68,9 @@ names(deaths) <- demes
 nonDemeDynamics <- paste(sep='', '-parms$mu*S + parms$mu*S + (parms$mu+parms$gamma)*I', '-S*(parms$beta*I) / (S+I)')
 names(nonDemeDynamics) <- 'S'
 
-
+# read tip labels from file
+tip.labels <- read.csv(tips.csv, header=FALSE, na.strings='')
+names(tip.labels) <- c('tip.label', 'tip.height')
 n.tips <- nrow(tip.labels)
 if (sum(x0) < n.tips) {
 	stop ('Population size is smaller than requested number of tips.')
@@ -104,7 +106,7 @@ tfgy <- make.fgy( t0, maxSampleTime, births, deaths, nonDemeDynamics,  x0,  migr
 
 #trees <- simulate.binary.dated.tree(births=births, deaths=deaths, nonDemeDynamics=nonDemeDynamics, t0=0, x0=x0, sampleTimes=sampleTimes, sampleStates=sampleStates, migrations=migrations, parms=parms, n.reps=10)
 
-trees <- simulate.binary.dated.tree.fgy( tfgy[[1]], tfgy[[2]], tfgy[[3]], tfgy[[4]], sampleTimes, sampleStates, integrationMethod = integrationMethod, n.reps=10)
+trees <- simulate.binary.dated.tree.fgy( tfgy[[1]], tfgy[[2]], tfgy[[3]], tfgy[[4]], sampleTimes, sampleStates, integrationMethod = integrationMethod, n.reps=n.reps)
 'multiPhylo' -> class(trees)
 
 write.tree(trees, file=output.nwk, append=FALSE)

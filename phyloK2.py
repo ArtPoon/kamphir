@@ -178,8 +178,11 @@ class PhyloKernel:
                 if n1.production == n2.production:
                     bl1 = [c1.branch_length for c1 in n1.clades]
                     bl2 = [c2.branch_length for c2 in n2.clades]
-                    res = self.decayFactor * math.exp( -1. / self.gaussFactor
+                    try:
+                        res = self.decayFactor * math.exp( -1. / self.gaussFactor
                             * (n1.sqbl + n2.sqbl - 2*sum([(bl1[i]*bl2[i]) for i in range(len(bl1))])))
+                    except:
+                        raise
 
                     for cn1 in range(2):
                         c1 = n1.clades[cn1]

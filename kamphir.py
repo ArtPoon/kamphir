@@ -41,7 +41,8 @@ class Kamphir (PhyloKernel):
     """
     
     def __init__(self, settings, rscript,
-                 ncores=1, nreps=10, nthreads=1, **kwargs):
+                 ncores=1, nreps=10, nthreads=1, gibbs=False,
+                 **kwargs):
         # call base class constructor
         PhyloKernel.__init__(self, **kwargs)
 
@@ -55,10 +56,11 @@ class Kamphir (PhyloKernel):
             self.proposed.update({k: v['initial']})
 
         # locations of files
+        self.pid = os.getpid()  # make paths unique to this process
         self.path_to_tree = None
-        self.path_to_input_csv = '/tmp/input.csv'
-        self.path_to_label_csv = '/tmp/tips.csv'
-        self.path_to_output_nwk = '/tmp/output.nwk'
+        self.path_to_input_csv = '/tmp/input_%d.csv' % self.pid
+        self.path_to_label_csv = '/tmp/tips_%d.csv' % self.pid
+        self.path_to_output_nwk = '/tmp/output_%d.nwk' % self.pid
         self.path_to_Rscript = rscript
 
         self.ntips = None
@@ -67,6 +69,7 @@ class Kamphir (PhyloKernel):
         self.ncores = ncores  # number of processes for rcolgem simulation
         self.nreps = nreps
         self.nthreads = nthreads  # number of processes for PhyloKernel
+        self.gibbs = gibbs
     
     def set_target_tree(self, path, delimiter=None, position=None):
         """
@@ -112,37 +115,53 @@ class Kamphir (PhyloKernel):
 
         # analyze target tree
         self.target_tree.ladderize()
-        self.normalize_tree(self.target_tree, 'mean')
+        self.normalize_tree(self.target_tree, self.normalize)
         self.annotate_tree(self.target_tree)
         self.ref_denom = self.kernel(self.target_tree, self.target_tree)
     
     
-    def proposal (self):
+    def proposal (self, tuning=1.0):
         """
         Generate a deep copy of parameters and modify one
         parameter value, given constraints (if any).
+        :param tuning = factor to adjust sigma
         """
-        for key in self.current.iterkeys():
-            self.proposed[key] = self.current[key]
-        
-        # which parameter to adjust in proposal
-        choices = []
-        for parameter in self.settings.iterkeys():
-            choices.extend([parameter] * int(self.settings[parameter]['weight']))
-        to_modify = random.sample(choices, 1)[0] # weighted sampling
-        #to_modify = random.sample(self.proposed.keys(), 1)[0] # uniform sampling
+        if self.gibbs:
+            # make deep copy
+            for key in self.current.iterkeys():
+                self.proposed[key] = self.current[key]
 
-        proposal_value = None
-        current_value = self.proposed[to_modify]
-        sigma = self.settings[to_modify]['sigma']
-        while True:
-            proposal_value = current_value + random.normalvariate(0, sigma)
-            if self.settings[to_modify].has_key('min') and proposal_value < self.settings[to_modify]['min']:
-                continue
-            if self.settings[to_modify].has_key('max') and proposal_value > self.settings[to_modify]['max']:
-                continue
-            break
-        self.proposed[to_modify] = proposal_value
+            # which parameter to adjust in proposal (component-wise)?
+            choices = []
+            for parameter in self.settings.iterkeys():
+                choices.extend([parameter] * int(self.settings[parameter]['weight']))
+            to_modify = random.sample(choices, 1)[0] # weighted sampling
+            #to_modify = random.sample(self.proposed.keys(), 1)[0] # uniform sampling
+
+            proposal_value = None
+            current_value = self.proposed[to_modify]
+            sigma = self.settings[to_modify]['sigma'] * tuning
+            while True:
+                proposal_value = current_value + random.normalvariate(0, sigma)
+                if self.settings[to_modify].has_key('min') and proposal_value < self.settings[to_modify]['min']:
+                    continue
+                if self.settings[to_modify].has_key('max') and proposal_value > self.settings[to_modify]['max']:
+                    continue
+                break
+            self.proposed[to_modify] = proposal_value
+        else:
+            # full-dimensional update
+            for key in self.current.iterkeys():
+                sigma = self.settings[key]['sigma'] * tuning
+                while True:
+                    proposal_value = self.current[key] + random.normalvariate(0, sigma)
+                    if self.settings[key].has_key('min') and proposal_value < self.settings[key]['min']:
+                        continue
+                    if self.settings[key].has_key('max') and proposal_value > self.settings[key]['max']:
+                        continue
+                    break
+                self.proposed[key] = proposal_value
+
     
     def prior (self, params):
         """
@@ -157,15 +176,32 @@ class Kamphir (PhyloKernel):
         """
         Calculate kernel score.  Allow for MP execution.
         """
-        tree.root.branch_length = 0.
-        tree.ladderize()
-        self.normalize_tree(tree, 'mean')
-        if not hasattr(tree.root, 'production'):
+        try:
+            tree.root.branch_length = 0.
+            tree.ladderize()
+            self.normalize_tree(tree, self.normalize)
             self.annotate_tree(tree)
-        k = self.kernel(self.target_tree, tree)
-        tree_denom = self.kernel(tree, tree)
+        except:
+            print 'ERROR: failed to prepare tree for kernel computation'
+            print tree
+            raise
+
+        try:
+            k = self.kernel(self.target_tree, tree)
+            tree_denom = self.kernel(tree, tree)
+        except:
+            print 'ERROR: failed to compute kernel score for tree'
+            print tree
+            print self.target_tree
+            raise
+
         #knorm = k / math.sqrt(self.ref_denom * tree_denom)
-        knorm = math.exp(math.log(k) - 0.5*(math.log(self.ref_denom) + math.log(tree_denom)))
+        try:
+            knorm = math.exp(math.log(k) - 0.5*(math.log(self.ref_denom) + math.log(tree_denom)))
+        except:
+            print 'ERROR: failed to normalize kernel score'
+            print k, self.ref_denom, tree_denom
+            raise
 
         if output is None:
             return knorm
@@ -177,6 +213,7 @@ class Kamphir (PhyloKernel):
         """
         Estimate the mean kernel distance between the reference tree and
         trees simulated under the given model parameters.
+        :returns List of Phylo Tree objects
         """
         # TODO: allow user to set arbitrary driver Rscript
         # TODO: generalize tip label annotation
@@ -190,6 +227,7 @@ class Kamphir (PhyloKernel):
         handle.close()
 
         # generate tip labels CSV file
+        # TODO: take user-specified tip labels
         handle = open(self.path_to_label_csv, 'w')
         for i in range(self.ntips):
             handle.write('%d,%s\n' % (
@@ -212,8 +250,7 @@ class Kamphir (PhyloKernel):
                 tree = Phylo.read(StringIO(line), 'newick')
             except:
                 # NewickError: Number of open/close parentheses do not match
-                print 'WARNING: Discarding tree with mismatched parentheses.'
-                print line
+                print 'WARNING: Discarding mangled tree.'
                 continue
             trees.append(tree)
         handle.close()
@@ -255,8 +292,7 @@ class Kamphir (PhyloKernel):
             try:
                 async_results = [apply_async(pool, self.compute, args=(tree,)) for tree in trees]
             except:
-                # dump trees to file for debugging
-
+                # TODO: dump trees to file for debugging
                 raise
 
             pool.close()  # prevent any more tasks from being added - once completed, workers exit
@@ -285,6 +321,11 @@ class Kamphir (PhyloKernel):
                    A higher value is more permissive.
         """
         # record settings in logfile header
+
+        # report variables in alphabetical order
+        keys = self.current.keys()
+        keys.sort()
+
         logfile.write('# colgem_fitter.py log\n')
         logfile.write('# start time: %s\n' % time.ctime())
         logfile.write('# input file: %s\n' % self.path_to_tree)
@@ -294,7 +335,7 @@ class Kamphir (PhyloKernel):
         
         cur_score = self.evaluate()
         step = first_step  # in case of restarting chain
-        logfile.write('\t'.join(['state', 'score', 'c1', 'c2', 'p', 'rho', 'N', 'T']))
+        logfile.write('\t'.join(['state', 'score'] + keys))
         logfile.write('\n')
 
         # TODO: generalize screen and file log parameters
@@ -318,14 +359,9 @@ class Kamphir (PhyloKernel):
             # screen log
             #print '%d\t%1.5f\t%1.5f\t%1.3f\t%1.3f\t%1.3f\t%1.5f\t%s' % (step, cur_score, next_score, 
             #    accept_prob, self.current['c1'], self.proposed['c1'], tol, time.ctime())
+            # TODO: generalize log outputs for varying model parameters
             to_screen = '%d\t%1.5f\t%1.5f\t' % (step, cur_score, accept_prob)
-            to_screen += '\t'.join(map(lambda x: str(round(x, 5)), [
-                self.current['c1'], 
-                self.current['c2'], 
-                self.current['p'], 
-                self.current['rho'], 
-                self.current['N'],
-                self.current['t.end']]))
+            to_screen += '\t'.join(map(lambda x: str(round(x, 5)), [self.current[k] for k in keys]))
             print to_screen
             
             if random.random() < accept_prob:
@@ -335,13 +371,7 @@ class Kamphir (PhyloKernel):
                 cur_score = next_score
             
             if step % skip == 0:
-                logfile.write('\t'.join(map(str, [step, cur_score,
-                                              self.current['c1'], 
-                                              self.current['c2'],
-                                              self.current['p'],
-                                              self.current['rho'],
-                                              self.current['N'],
-                                              self.current['t.end']])))
+                logfile.write('\t'.join(map(str, [step, cur_score] + [self.current[k] for k in keys])))
                 logfile.write('\n')
             step += 1
 
@@ -366,26 +396,38 @@ if __name__ == '__main__':
     # log settings
     parser.add_argument('nwkfile', help='File containing Newick tree string.')
     parser.add_argument('logfile', help='File to log ABC-MCMC traces.')
-    parser.add_argument('-skip', default=10, help='Number of steps in ABC-MCMC to skip for log.')
+    parser.add_argument('-skip', default=1, help='Number of steps in ABC-MCMC to skip for log.')
     parser.add_argument('-overwrite', action='store_true', help='Allow overwrite of log file.')
     parser.add_argument('-restart', action='store_true', help='Restart chain from a log file.')
 
+    # tree input settings
+    parser.add_argument('-delimiter', default=None,
+                        help='Delimiter used in tip label to separate fields.')
+    parser.add_argument('-datefield', default=None,
+                        help='Index (from 0) of field in tip label containing date.')
     # annealing settings
     parser.add_argument('-tol0', type=float, default=0.005,
                         help='Initial tolerance for simulated annealing.')
-    parser.add_argument('-mintol', type=float, default=0.001,
+    parser.add_argument('-mintol', type=float, default=0.002,
                         help='Minimum tolerance for simulated annealing.')
     parser.add_argument('-toldecay', type=float, default=0.0025,
                         help='Simulated annealing decay rate.')
 
+    # MCMC settings
+    parser.add_argument('-maxsteps', type=int, default=1e5,
+                        help='Maximum number of steps to run chain sample.')
+    parser.add_argument('-gibbs', action='store_true',
+                        help='Perform component-wise update; otherwise full-dimensional '
+                             'Metropolis is the default.')
+
     # kernel settings
-    parser.add_argument('-kdecay', default=0.2, type=float,
+    parser.add_argument('-kdecay', default=0.35, type=float,
                         help='Decay factor for tree shape kernel. Lower values penalize large subset '
                              'trees more severely.')
-    parser.add_argument('-tau', default=1.0, type=float,
+    parser.add_argument('-tau', default=0.5, type=float,
                         help='Precision for Gaussian radial basis function penalizing branch length '
                              'discordance. Lower values penalize more severely.')
-    parser.add_argument('-normalize', default='none', choices=['none', 'mean', 'median'],
+    parser.add_argument('-normalize', default='mean', choices=['none', 'mean', 'median'],
                         help='Scale branch lengths so trees of different lengths can be compared.')
 
     # parallelization
@@ -428,9 +470,10 @@ if __name__ == '__main__':
                       nthreads=args.nthreads,
                       decayFactor=args.kdecay,
                       normalize=args.normalize,
-                      gaussFactor=args.tau)
+                      gaussFactor=args.tau,
+                      gibbs=args.gibbs)
 
-        kam.set_target_tree(args.nwkfile)
+        kam.set_target_tree(args.nwkfile, delimiter=args.delimiter, position=args.datefield)
 
         # prevent previous log files from being overwritten
         modifier = ''

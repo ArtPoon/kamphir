@@ -1330,7 +1330,8 @@ if (s!=1) warning('Tree simulator assumes times given in equal increments')
 
 		haxis <- seq(0, maxHeight, length.out=fgyParms$FGY_RESOLUTION)
 		AplusNotSampled <- ode( y = colSums(sortedSampleStates), times = haxis, func=dA, parms=NA, method = integrationMethod)[, 2:(m+1)]
-		Amono <- rowSums( AplusNotSampled)
+		AplusNotSampled <- as.matrix(AplusNotSampled, nrows=length(haxis))
+		Amono <- rowSums( AplusNotSampled )
 		Amono[is.na(Amono)] <- min(Amono[!is.na(Amono)] )
 		Amono <- Amono - min(Amono)
 		Amono <- (max(Amono)  - Amono) / max(Amono)
@@ -1385,7 +1386,7 @@ if (s!=1) warning('Tree simulator assumes times given in equal increments')
 		#print(paste(date(), 'simulate tree'))
 
 		if (length(extantLines) > 1){
-			A0 <- colSums(sortedSampleStates[extantLines,] )
+			A0 <- colSums(as.matrix(sortedSampleStates[extantLines,], nrow=length(extantLines)) )
 		} else{
 			A0 <- sortedSampleStates[extantLines,]
 		}
@@ -1415,9 +1416,9 @@ if (s!=1) warning('Tree simulator assumes times given in equal increments')
 			if ( nExtant > 1)
 			{
 				mstates[isExtant,] <- t( t(Q) %*% t(mstates[isExtant,])  )
-				mstates[isExtant,] <- abs(mstates[isExtant,]) / rowSums(abs(mstates[isExtant,]))
+				mstates[isExtant,] <- abs(mstates[isExtant,]) / rowSums(as.matrix(abs(mstates[isExtant,]), nrow=length(isExtant)))
 				#recalculate A
-				A <- colSums(mstates[isExtant,])
+				A <- colSums(as.matrix(mstates[isExtant,], nrow=length(isExtant)))
 			}
 			else{
 				mstates[isExtant,] <- t( t(Q) %*% mstates[isExtant,] )
@@ -1475,7 +1476,7 @@ if (s!=1) warning('Tree simulator assumes times given in equal increments')
 
 					# mstates stores probabilities of deme membership (columns)
 					#  for all lineages (rows)
-					probstates <- mstates[extantLines,]
+					probstates <- as.matrix(mstates[extantLines,], nrow=length(extantLines))
 
 					# which extant lineages are source and recipient?
 					u_i <- sample.int(  nExtant, size=1, prob = probstates[,k])
@@ -1524,12 +1525,12 @@ if (s!=1) warning('Tree simulator assumes times given in equal increments')
 	    	#~ <reorder edges for compatibility with ape::phylo functions>
 	    	#~ (ideally ape would not care about the edge order, but actually most functions assume a certain order)
 	    	sampleTimes2 <- sampleTimes[names(sortedSampleHeights)]
-	    	sampleStates2 <- lstates[1:n,]; rownames(sampleStates2) <- tip.label
+	    	sampleStates2 <- as.matrix(lstates[1:n,], nrow=n); rownames(sampleStates2) <- tip.label
 	        #~ browser()
 		    phylo <- read.tree(text=write.tree(self) )
 
     		sampleTimes2 <- sampleTimes2[phylo$tip.label];
-    		sampleStates2 <- sampleStates2[phylo$tip.label,];
+    		sampleStates2 <- as.matrix(sampleStates2[phylo$tip.label,], nrow=length(phylo$tip.label))
     		bdt <- binaryDatedTree(phylo, sampleTimes2, sampleStates = sampleStates2)
 		}, error = function(e) browser())
 		return(bdt)
