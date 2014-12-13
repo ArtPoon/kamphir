@@ -57,6 +57,8 @@ class Kamphir (PhyloKernel):
 
         # locations of files
         self.pid = os.getpid()  # make paths unique to this process
+        print 'initializing Kamphir with pid', self.pid
+
         self.path_to_tree = None
         self.path_to_input_csv = '/tmp/input_%d.csv' % self.pid
         self.path_to_label_csv = '/tmp/tips_%d.csv' % self.pid
@@ -92,6 +94,15 @@ class Kamphir (PhyloKernel):
         self.ntips = len(tips)
         print 'read in', self.ntips, 'leaves'
 
+        # constrain duration of simulation to tree depth
+        if self.normalize != 'none':
+            self.settings['t.end']['min'] = max(self.target_tree.depths().values())
+            self.settings['t.end']['initial'] = self.settings['t.end']['min']
+            self.settings['t.end']['max'] = 1.1*self.settings['t.end']['min']
+
+            self.current['t.end'] = self.settings['t.end']['initial']
+            self.proposed['t.end'] = self.settings['t.end']['initial']
+
         # parse tip heights from labels
         if delimiter is None:
             self.tip_heights = [''] * self.ntips
@@ -105,13 +116,14 @@ class Kamphir (PhyloKernel):
                     if tipdate > maxdate:
                         maxdate = tipdate
                 except:
-                    print 'listng: Failed to parse tipdate from label', tip.name
+                    print 'Warning: Failed to parse tipdate from label', tip.name
                     tipdate = None  # gets interpreted as 0
                     pass
 
                 tipdates.append(tipdate)
 
             self.tip_heights = [str(maxdate-t) if t else 0 for t in tipdates]
+            print self.tip_heights
 
         # analyze target tree
         self.target_tree.ladderize()
@@ -331,7 +343,9 @@ class Kamphir (PhyloKernel):
         logfile.write('# input file: %s\n' % self.path_to_tree)
         logfile.write('# annealing settings: tol0=%f, mintol=%f, decay=%f\n' % (tol0, mintol, decay))
         logfile.write('# MCMC settings: %s\n' % json.dumps(self.settings))
-        logfile.write('# kernel settings: decay=%f\n' % self.decayFactor)
+        logfile.write('# kernel settings: decay=%f normalize=%s tau=%f %s\n' % (
+                      self.decayFactor, self.normalize, self.gaussFactor,
+                      'gibbs' if self.gibbs else ''))
         
         cur_score = self.evaluate()
         step = first_step  # in case of restarting chain
@@ -426,7 +440,9 @@ if __name__ == '__main__':
                              'trees more severely.')
     parser.add_argument('-tau', default=0.5, type=float,
                         help='Precision for Gaussian radial basis function penalizing branch length '
-                             'discordance. Lower values penalize more severely.')
+                             'discordance. Lower values penalize more severely.  CAVEAT: if normalize '
+                             'is set to "none" then make sure this parameter is scaled to the '
+                             'typical branch length of the target tree.')
     parser.add_argument('-normalize', default='mean', choices=['none', 'mean', 'median'],
                         help='Scale branch lengths so trees of different lengths can be compared.')
 
