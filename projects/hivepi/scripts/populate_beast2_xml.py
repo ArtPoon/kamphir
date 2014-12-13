@@ -20,11 +20,6 @@ fasta = convert_fasta(handle)
 handle.close()
 
 # extract tip dates
-tipdates = ''
-for h, s in fasta:
-    tipdate = h.split('_')[-1]
-    tipdates += '%s = %s, ' % (h, tipdate)
-
 
 template = Tree()
 root = template.parse(template)
@@ -32,6 +27,15 @@ root = template.parse(template)
 data = template.findall('data')[0]
 data._children = []  # reset data block
 
-traits = template.find('trait')
+tipdates = ''
+for h, s in fasta:
+    tipdate = h.split('_')[-1]
+    tipdates += '%s = %s, ' % (h, tipdate)
+    seq = Node('sequence', {'totalcount': 4, 'id': 'seq_seq_'+h, 'value': s, 'taxon': h})
+    data._children.append(seq)
 
+
+# replace tip date information
+traits = template.find('trait')
 traits.set('value', tipdates.strip(','))
+
