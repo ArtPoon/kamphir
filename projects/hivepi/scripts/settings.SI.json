@@ -30,5 +30,13 @@
         "initial": 1.0,
         "prior": "lognorm(1)",
         "sigma": 0.0
+    },
+    "gamma": {
+        "weight": 1.0,
+        "min": 0,
+        "max": 0.01,
+        "initial": 0.001,
+        "prior": "",
+        "sigma": 1E-4
     }
 }

@@ -45,13 +45,6 @@
         <sequence id="seq_seq_29422899" taxon="29422899" totalcount="4" value="CCTCAAATCACTCTTTGGCAGCGACCCCTCGTCACAATAAAGGTAGGGGGGCAACTAAAGGAAGCCCTATTAGATACAGGAGCAGATGATACAGTATTAGAAGACATGGATTTGCCAGGAAGATGGAAACCAAAAATGATAGGGGGAATTGGAGGTTTTATCAAAGTAAGACAGTATGAGCAGATAACCATAGAAATCTGTGGACATAAAGCTATAGGTACAGTATTAGTAGGACCTACACCTGTCAACATAATTGGAAGGAATCTGTTGACTCAGATTGGTTGCACTTTAAATTTTCCCATTAGTCCTATTGAAACTGTACCAGTAAAATTAAAGCCAGGAATGGACGGCCCAAAAGTTAAACAATGGCCATTGACAGAAGAAAAAGTAAAAGCATTAGTAGAAATTTGTACAGAAATGGAAAAGGAAGGGAAAATTTCAAAAATTGGGCCTGAAAATCCATACAATACTCCGGTGTTTGCCATAAAGAAAAAAGATGGTACTAAATGGAGAAAATTAGTAGATTTCAGAGAACTTAATAAAAGGACTCAAGACTTCTGGGAGATTCAATTAGGAATACCCCATCCCGCAGGGTTAAAAAAGAAAAAATCAGTAACAGTCCTGGATGTGGGTGATGCATATTTTTCAGTTCCCTTAGATCCAAACTTCAGAAAATATACTGCATTTACCATACCTAGTACAAACAATGAGACACCAGGGATTAGATATCAGTACAATGTACTCCCACAGGGATGGAAAGGATCACCAGCAATATTCCAATGTAGCATGACAAAAATTTTGGAGCCTTTTAGAAAACAAAATCCAGAGATAATTATCTATCAATACATGGATGATTTGTATGTAGGATCTGACTTAGAAATAGGGCAGCATAGAGCAAAAATAGAGGAACTGAGGCAACATTTGTTGAAGTGGGGATTTACCACCCCAGACA"/>
     </data>
 
-    <taxonset id="unknownTips1a" spec="beast.evolution.alignment.TaxonSet">
-        <taxon id="03-122985br" spec="beast.evolution.alignment.Taxon"/> <!-- 2003-->
-    </taxonset>
-    <taxonset id="unknownTips1b" spec="beast.evolution.alignment.TaxonSet">
-        <taxon id="29422899" spec="beast.evolution.alignment.Taxon"/> <!-- 2001-->
-    </taxonset>
-
     <trait id="tipDates" spec='beast.evolution.tree.TraitSet' traitname='date-forward' units='year' value='
 		00-100724 = 2000.0329,
 		00-101582 = 2000.0575,
@@ -97,11 +90,9 @@
         <taxa spec='beast.evolution.alignment.TaxonSet' alignment='@HIV1_CL1'/>
     </trait>
 
-   <siteModel gammaCategoryCount="4" id="SiteModel" proportionInvariant="@proportionInvariant" spec="SiteModel">
+   <siteModel gammaCategoryCount="4" id="SiteModel" spec="SiteModel">
         <parameter dimension="1"  id="mutationRate" name="mutationRate" value="1.0"/>
-        <parameter dimension="1" id="gammaShape" name="shape" value="0.5" lower="0.0" upper="1000.0"/>
-        <substModel id="gtr" rateAC="@rateAC" rateGT="@rateGT" rateAT="@rateAT" rateCG="@rateCG" rateCT="@rateCT" spec="GTR">
-            <parameter dimension="1"  id="rateAG" lower="0.0" name="rateAG" value="1.0"/>
+        <substModel id="hky" kappa="@kappa" spec="HKY">
             <frequencies estimate="true" id="freqs" spec="Frequencies">
                 <parameter name='frequencies' id='freqParameter' value='0.25' dimension='4' lower="0." upper="1."/>
             </frequencies>
@@ -136,7 +127,7 @@
             <distr spec='beast.math.distributions.LogNormalDistributionModel' M="-1" S="1"/>
         </distribution>
         <distribution spec='beast.math.distributions.Prior' x="@volz.origin">
-            <distr spec="beast.math.distributions.Uniform"  lower="0" upper="2000"/>
+            <distr spec="beast.math.distributions.Uniform"  lower="0" upper="3000"/>
         </distribution>
 
         <distribution  x="@clock.rate" id="clockRatePrior" spec='beast.math.distributions.Prior'>
@@ -158,14 +149,7 @@
             <stateNode idref="tree"/>
             <stateNode idref="clock.rate"/>
 
-            <parameter dimension="1"  id="rateAC" lower="0.0" upper="100.0" name="stateNode" value="1.0"/>
-            <parameter dimension="1"  id="rateGT" lower="0.0" upper="100.0" name="stateNode" value="1.0"/>
-            <parameter dimension="1"  id="rateAT" lower="0.0" upper="100.0" name="stateNode" value="1.0"/>
-            <parameter dimension="1"  id="rateCG" lower="0.0" upper="100.0" name="stateNode" value="1.0"/>
-            <parameter dimension="1"  id="rateCT" lower="0.0" upper="100.0" name="stateNode" value="1.0"/>
-            <parameter dimension="1"  id="proportionInvariant" name="stateNode" value="0.1"/>
-
-            <stateNode idref="gammaShape"/>
+            <parameter dimension="1"  id="kappa" lower="0.0" upper="100.0" name="stateNode" value="2.0"/>
             <stateNode idref="freqParameter"/>
         </state>
 
@@ -212,16 +196,10 @@
         </operator>
 
 
-        <!-- GTR model operators -->
+        <!-- HKY model operators -->
 
         <operator id="clock.rateScaler" parameter="@clock.rate" scaleFactor="0.75" spec="ScaleOperator" weight="1.0"/>
-        <operator spec='ScaleOperator' scaleFactor=".75" weight=".2" parameter="@rateAC"/>
-        <operator spec='ScaleOperator' scaleFactor=".75" weight=".2" parameter="@rateAT"/>
-        <operator spec='ScaleOperator' scaleFactor=".75" weight=".2" parameter="@rateCG"/>
-        <operator spec='ScaleOperator' scaleFactor=".75" weight=".2" parameter="@rateCT"/>
-        <operator spec='ScaleOperator' scaleFactor=".75" weight=".2" parameter="@rateGT"/>
-        <operator spec='ScaleOperator' scaleFactor=".75" weight=".2" parameter="@proportionInvariant"/>
-        <operator id='gammaShapeScaler' spec='ScaleOperator' scaleFactor=".75" weight=".2" parameter="@gammaShape"/>
+        <operator id='kappaScaler' parameter="@kappa" spec='ScaleOperator' scaleFactor="0.5" weight="0.1"/>
         <operator autoOptimize="true" delta="0.2" id="FrequenciesExchanger" integer="false" spec="DeltaExchangeOperator" weight="0.1" parameter="@freqParameter"/>
 
         <!-- Treeeeeee operators -->
@@ -251,15 +229,8 @@
             <log idref="volz.origin"/>
             <log idref="volzSIR"/>
             <log spec='beast.evolution.tree.TreeHeightLogger' tree='@tree'/>
-            <log idref="proportionInvariant"/>
             <log idref="clock.rate"/>
-            <log idref="gammaShape"/>
-            <log idref="rateAC"/>
-            <log idref="rateAG"/>
-            <log idref="rateAT"/>
-            <log idref="rateCG"/>
-            <log idref="rateCT"/>
-            <log idref="rateGT"/>
+            <log idref="kappa"/>
         </logger>
 
         <logger fileName="DeterCoalSIR_HIVcluster1.trees" id="treelog" logEvery="1000" mode="tree">
@@ -278,15 +249,8 @@
             <log idref="volz.origin"/>
             <log idref="volzSIR"/>
             <log spec='beast.evolution.tree.TreeHeightLogger' tree='@tree'/>
-            <log idref="proportionInvariant"/>
             <log idref="clock.rate"/>
-            <log idref="gammaShape"/>
-            <log idref="rateAC"/>
-            <log idref="rateAG"/>
-            <log idref="rateAT"/>
-            <log idref="rateCG"/>
-            <log idref="rateCT"/>
-            <log idref="rateGT"/>
+            <log idref="kappa"/>
         </logger>
 
     </run>
