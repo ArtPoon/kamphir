@@ -40,7 +40,7 @@ class Kamphir (PhyloKernel):
         'max': maximum parameter value (optional)
     """
     
-    def __init__(self, settings, rscript,
+    def __init__(self, settings, script, driver,
                  ncores=1, nreps=10, nthreads=1, gibbs=False,
                  **kwargs):
         # call base class constructor
@@ -63,7 +63,8 @@ class Kamphir (PhyloKernel):
         self.path_to_input_csv = '/tmp/input_%d.csv' % self.pid
         self.path_to_label_csv = '/tmp/tips_%d.csv' % self.pid
         self.path_to_output_nwk = '/tmp/output_%d.nwk' % self.pid
-        self.path_to_Rscript = rscript
+        self.path_to_script = script
+        self.driver = driver
 
         self.ntips = None
         self.tip_heights = []
@@ -72,7 +73,7 @@ class Kamphir (PhyloKernel):
         self.nreps = nreps
         self.nthreads = nthreads  # number of processes for PhyloKernel
         self.gibbs = gibbs
-    
+
     def set_target_tree(self, path, delimiter=None, position=None):
         """
         Assign a Bio.Phylo Tree object to fit a model to.
@@ -248,11 +249,12 @@ class Kamphir (PhyloKernel):
             ))
         handle.close()
 
-        # external call to Rscript
-        os.system('Rscript %s %s %s %s' % (self.path_to_Rscript,
-                                           self.path_to_input_csv,
-                                           self.path_to_label_csv,
-                                           self.path_to_output_nwk))
+        # external call to tree simulator script
+        os.system('%s %s %s %s %s >/dev/null 2>/dev/null' %
+                  (self.driver, self.path_to_script,
+                  self.path_to_input_csv,
+                  self.path_to_label_csv,
+                  self.path_to_output_nwk))
 
         # retrieve trees from output file
         trees = []
@@ -404,8 +406,10 @@ if __name__ == '__main__':
                                             'can be used to generate a tree.')
 
     # first required arg is simulation Rscript
-    parser.add_argument('rscript', help='Rscript with model specification for simulating trees.')
+    parser.add_argument('script', help='Script for simulating trees.')
     parser.add_argument('settings',  help='JSON file containing model parameter settings.')
+    parser.add_argument('-driver', default='Rscript', choices=['Rscript', 'python'],
+                        help='Driver for executing script.')
 
     # log settings
     parser.add_argument('nwkfile', help='File containing Newick tree string.')
@@ -420,9 +424,9 @@ if __name__ == '__main__':
     parser.add_argument('-datefield', default=None,
                         help='Index (from 0) of field in tip label containing date.')
     # annealing settings
-    parser.add_argument('-tol0', type=float, default=0.005,
+    parser.add_argument('-tol0', type=float, default=0.01,
                         help='Initial tolerance for simulated annealing.')
-    parser.add_argument('-mintol', type=float, default=0.002,
+    parser.add_argument('-mintol', type=float, default=0.005,
                         help='Minimum tolerance for simulated annealing.')
     parser.add_argument('-toldecay', type=float, default=0.0025,
                         help='Simulated annealing decay rate.')
@@ -481,7 +485,8 @@ if __name__ == '__main__':
         handle.close()
 
         kam = Kamphir(settings=settings,
-                      rscript=args.rscript,
+                      driver=args.driver,
+                      script=args.script,
                       ncores=args.ncores,
                       nthreads=args.nthreads,
                       decayFactor=args.kdecay,

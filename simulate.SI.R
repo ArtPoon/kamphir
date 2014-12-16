@@ -2,7 +2,7 @@
 args <- commandArgs(TRUE)
 #args <- c('/tmp/input.csv', '/tmp/tips.csv', '/tmp/output.nwk')
 
-if (length(args) != 3) { stop('Usage: mapCasesToFSA.R <input CSV> <tips CSV> <output NWK>') }
+if (length(args) != 3) { stop('Usage: simulate.SI.R <input CSV> <tips CSV> <output NWK>') }
 input.csv = args[1]  # simulation and model parameter settings
 tips.csv = args[2]  # tip dates and states
 output.nwk = args[3]
