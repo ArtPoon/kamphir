@@ -17,11 +17,11 @@ if (!file.exists(tips.csv)) {
 n.cores <- 6  # for simulation in parallel
 
 ## default settings
-n.reps = 10
+nreps = 10
 fgyResolution = 500.  # large value gives smaller time step
 integrationMethod = 'rk4'
 t0 = 0
-t.end = 30.*52  # weeks
+t_end = 30.*52  # weeks
 
 N = 1000  # total population size
 
@@ -88,7 +88,7 @@ if (any(tip.labels$tip.height < 0)) {
 
 # a vector indicating when each tip was sampled
 #sampleTimes <- rep(t.end, times=n.tips)
-sampleTimes <- t.end - tip.labels$tip.height
+sampleTimes <- t_end - tip.labels$tip.height
 
 sampleStates <- matrix(1, nrow=n.tips, ncol=length(demes))
 colnames(sampleStates) <- demes
@@ -106,7 +106,7 @@ tfgy <- make.fgy( t0, maxSampleTime, births, deaths, nonDemeDynamics,  x0,  migr
 
 #trees <- simulate.binary.dated.tree(births=births, deaths=deaths, nonDemeDynamics=nonDemeDynamics, t0=0, x0=x0, sampleTimes=sampleTimes, sampleStates=sampleStates, migrations=migrations, parms=parms, n.reps=10)
 
-trees <- simulate.binary.dated.tree.fgy( tfgy[[1]], tfgy[[2]], tfgy[[3]], tfgy[[4]], sampleTimes, sampleStates, integrationMethod = integrationMethod, n.reps=n.reps)
+trees <- simulate.binary.dated.tree.fgy( tfgy[[1]], tfgy[[2]], tfgy[[3]], tfgy[[4]], sampleTimes, sampleStates, integrationMethod = integrationMethod, n.reps=nreps)
 'multiPhylo' -> class(trees)
 
 write.tree(trees, file=output.nwk, append=FALSE)

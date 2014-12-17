@@ -11,7 +11,8 @@ from copy import deepcopy
 import time
 from cStringIO import StringIO
 import json
-
+import subprocess
+FNULL = open(os.devnull, 'w')
 
 # see http://stackoverflow.com/questions/8804830/python-multiprocessing-pickling-error/24673524#24673524
 import dill
@@ -97,12 +98,12 @@ class Kamphir (PhyloKernel):
 
         # constrain duration of simulation to tree depth
         if self.normalize != 'none':
-            self.settings['t.end']['min'] = max(self.target_tree.depths().values())
-            self.settings['t.end']['initial'] = self.settings['t.end']['min']
-            self.settings['t.end']['max'] = 1.1*self.settings['t.end']['min']
+            self.settings['t_end']['min'] = max(self.target_tree.depths().values())
+            self.settings['t_end']['initial'] = self.settings['t_end']['min']
+            self.settings['t_end']['max'] = 1.1*self.settings['t_end']['min']
 
-            self.current['t.end'] = self.settings['t.end']['initial']
-            self.proposed['t.end'] = self.settings['t.end']['initial']
+            self.current['t_end'] = self.settings['t_end']['initial']
+            self.proposed['t_end'] = self.settings['t_end']['initial']
 
         # parse tip heights from labels
         if delimiter is None:
@@ -113,7 +114,7 @@ class Kamphir (PhyloKernel):
             for tip in tips:
                 try:
                     items = tip.name.split(delimiter)
-                    tipdate = int(items[position])
+                    tipdate = float(items[position])
                     if tipdate > maxdate:
                         maxdate = tipdate
                 except:
@@ -124,7 +125,6 @@ class Kamphir (PhyloKernel):
                 tipdates.append(tipdate)
 
             self.tip_heights = [str(maxdate-t) if t else 0 for t in tipdates]
-            print self.tip_heights
 
         # analyze target tree
         self.target_tree.ladderize()
@@ -234,7 +234,7 @@ class Kamphir (PhyloKernel):
         # generate input control CSV file
         handle = open(self.path_to_input_csv, 'w')
         handle.write('n.cores,%d\n' % self.ncores)  # parallel or serial execution
-        handle.write('n.reps,%d\n' % self.nreps)  # number of replicates
+        handle.write('nreps,%d\n' % self.nreps)  # number of replicates
         for item in self.proposed.iteritems():
             handle.write('%s,%f\n' % item)  # parameter name and value
         handle.close()
@@ -250,11 +250,8 @@ class Kamphir (PhyloKernel):
         handle.close()
 
         # external call to tree simulator script
-        os.system('%s %s %s %s %s >/dev/null 2>/dev/null' %
-                  (self.driver, self.path_to_script,
-                  self.path_to_input_csv,
-                  self.path_to_label_csv,
-                  self.path_to_output_nwk))
+        subprocess.call([self.driver, self.path_to_script, self.path_to_input_csv,
+                               self.path_to_label_csv, self.path_to_output_nwk])
 
         # retrieve trees from output file
         trees = []
@@ -410,6 +407,7 @@ if __name__ == '__main__':
     parser.add_argument('settings',  help='JSON file containing model parameter settings.')
     parser.add_argument('-driver', default='Rscript', choices=['Rscript', 'python'],
                         help='Driver for executing script.')
+    parser.add_argument('-nreps', default=10, type=int, help='Number of replicate trees to simulate.')
 
     # log settings
     parser.add_argument('nwkfile', help='File containing Newick tree string.')
@@ -421,7 +419,7 @@ if __name__ == '__main__':
     # tree input settings
     parser.add_argument('-delimiter', default=None,
                         help='Delimiter used in tip label to separate fields.')
-    parser.add_argument('-datefield', default=None,
+    parser.add_argument('-datefield', default=-1,
                         help='Index (from 0) of field in tip label containing date.')
     # annealing settings
     parser.add_argument('-tol0', type=float, default=0.01,
@@ -492,7 +490,8 @@ if __name__ == '__main__':
                       decayFactor=args.kdecay,
                       normalize=args.normalize,
                       gaussFactor=args.tau,
-                      gibbs=args.gibbs)
+                      gibbs=args.gibbs,
+                      nreps=args.nreps)
 
         kam.set_target_tree(args.nwkfile, delimiter=args.delimiter, position=args.datefield)
 

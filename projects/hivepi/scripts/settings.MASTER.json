@@ -1,0 +1,50 @@
+{
+    "t_end": {
+        "weight": 1.0,
+        "min": 20.0,
+        "max": 40.0,
+        "initial": 30.0,
+        "prior": "uniform(loc=520, scale=2600)",
+        "sigma": 0.5
+    },
+    "N": {
+        "weight": 2.0,
+        "min": 1000,
+        "max": 100000.0,
+        "initial": 2000.0,
+        "prior": "norm(loc=8000, scale=3000)",
+        "sigma": 200
+    },
+    "beta": {
+        "weight": 2.0,
+        "min": 0.0001,
+        "max": 0.01,
+        "initial": 0.002,
+        "prior": "lognorm(0.5)",
+        "sigma": 0.0001
+    },
+    "p": {
+        "weight": 0.0,
+        "min": 0.0,
+        "max": 1.0,
+        "initial": 1.0,
+        "prior": "lognorm(1)",
+        "sigma": 0.0
+    },
+    "gamma": {
+        "weight": 1.0,
+        "min": 0.01,
+        "max": 1.0,
+        "initial": 0.2,
+        "prior": "",
+        "sigma": 0.01
+    },
+    "phi": {
+        "weight": 1.0,
+        "min": 0.05,
+        "max": 1.0,
+        "initial": 0.2,
+        "prior": "",
+        "sigma": 0.01
+    }
+}

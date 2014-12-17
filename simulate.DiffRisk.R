@@ -17,11 +17,11 @@ if (!file.exists(tips.csv)) {
 n.cores <- 6  # for simulation in parallel
 
 ## default settings
-n.reps = 10
+nreps = 10
 fgyResolution = 500.  # large value gives smaller time step
 integrationMethod = 'rk4'
 t0 = 0
-t.end = 30.*52  # weeks
+t_end = 30.*52  # weeks
 
 N = 1000  # total population size
 p = 0.5  # frequency of risk group 1
@@ -101,7 +101,7 @@ if (sum(x0) < n.tips) {
 # interpret missing tip dates as 0 (sampled at t.end)
 tip.labels$tip.height[is.na(tip.labels$tip.height)] <- 0
 
-if (max(tip.labels$tip.height) > t.end) {
+if (max(tip.labels$tip.height) > t_end) {
 	stop('Max tip height in labels file exceeds t.end setting.')
 }
 if (any(tip.labels$tip.height < 0)) {
@@ -110,7 +110,7 @@ if (any(tip.labels$tip.height < 0)) {
 
 # a vector indicating when each tip was sampled
 #sampleTimes <- rep(t.end, times=n.tips)
-sampleTimes <- t.end - tip.labels$tip.height
+sampleTimes <- t_end - tip.labels$tip.height
 
 
 # this is a binary-valued matrix where number of columns equals demes
@@ -132,7 +132,7 @@ maxSampleTime <- max(sampleTimes)
 tfgy <- make.fgy( t0, maxSampleTime, births, deaths, nonDemeDynamics,  x0,  migrations=migrations,  parms=parms, fgyResolution = fgyResolution, integrationMethod = integrationMethod)
 
 # simulate trees
-trees <- simulate.binary.dated.tree.fgy( tfgy[[1]], tfgy[[2]], tfgy[[3]], tfgy[[4]], sampleTimes, sampleStates, integrationMethod = integrationMethod, n.reps=n.reps, n.cores=n.cores)
+trees <- simulate.binary.dated.tree.fgy( tfgy[[1]], tfgy[[2]], tfgy[[3]], tfgy[[4]], sampleTimes, sampleStates, integrationMethod = integrationMethod, n.reps=nreps, n.cores=n.cores)
 'multiPhylo' -> class(trees)
 
 write.tree(trees, file=output.nwk, append=FALSE)
