@@ -79,7 +79,7 @@ if (sum(x0) < n.tips) {
 # interpret missing tip dates as 0 (sampled at t.end)
 tip.labels$tip.height[is.na(tip.labels$tip.height)] <- 0
 
-if (max(tip.labels$tip.height) > t.end) {
+if (max(tip.labels$tip.height) > t_end) {
 	stop('Max tip height in labels file exceeds t.end setting.')
 }
 if (any(tip.labels$tip.height < 0)) {

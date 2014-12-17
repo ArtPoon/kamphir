@@ -250,8 +250,14 @@ class Kamphir (PhyloKernel):
         handle.close()
 
         # external call to tree simulator script
-        subprocess.call([self.driver, self.path_to_script, self.path_to_input_csv,
-                               self.path_to_label_csv, self.path_to_output_nwk])
+        """
+        p = subprocess.Popen([self.driver, self.path_to_script, self.path_to_input_csv,
+                               self.path_to_label_csv, self.path_to_output_nwk],
+                             stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+        p.wait()
+        """
+        os.system(' '.join([self.driver, self.path_to_script, self.path_to_input_csv,
+                            self.path_to_label_csv, self.path_to_output_nwk]))
 
         # retrieve trees from output file
         trees = []

@@ -110,7 +110,9 @@ handle.close()
 
 # call MASTER
 #os.system('master2 %s > /dev/null' % tmpfile)
-subprocess.call(['java', '-jar', jarfile, tmpfile], shell=True, stdout=FNULL, stderr=FNULL)
+p = subprocess.Popen(['java', '-jar', jarfile, tmpfile], 
+                     stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+p.wait()
 
 
 # sample tips to enforce size of tree
