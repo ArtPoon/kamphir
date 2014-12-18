@@ -8,6 +8,13 @@ import sys
 from Bio import Phylo
 from random import sample
 import subprocess
+import time
+
+# TODO: allow user to set time limit and step for MASTER
+
+time_limit = 30  # seconds
+time_step = 5  # seconds
+
 
 jarfile = '/Users/art/src/MASTER-2.0.0/dist/MASTER-2.0.0/MASTER-2.0.0.jar'
 FNULL = open(os.devnull, 'w')
@@ -42,7 +49,7 @@ template = jenv.from_string(source=
     <run spec='InheritanceEnsemble'
          nTraj='{{ nreps|int }}'
          samplePopulationSizes="true"
-         verbosity="1"
+         verbosity="0"
          simulationTime="{{ t_end }}">
 
         <model spec='Model' id='model'>
@@ -108,11 +115,45 @@ handle = open(tmpfile, 'w')
 handle.write(template.render(context))
 handle.close()
 
+# remove previous Newick output if it exists
+if os.path.exists(outfile):
+    os.remove(outfile)
+
 # call MASTER
 #os.system('master2 %s > /dev/null' % tmpfile)
-p = subprocess.Popen(['java', '-jar', jarfile, tmpfile], 
+p = subprocess.Popen(['java', '-jar', jarfile, tmpfile],
                      stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-p.wait()
+
+# check if outfile has expected number of lines
+elapsed = 0
+ntips = context['ntips']  # remember original number
+while 1:
+    time.sleep(time_step)
+    handle = open(outfile, 'rU')
+    lines = handle.readlines()
+    if len(lines) == context['nreps']:
+        break
+
+    elapsed += time_step
+    if elapsed > time_limit:
+        # taking too long - reduce requested number of tips
+        p.kill()
+        context['ntips'] -= 10
+        if context['ntips'] < 2:
+            print 'ERROR: ntips cannot be less than 2'
+            sys.exit(1)
+
+        # update template
+        handle = open(tmpfile, 'w')
+        handle.write(template.render(context))
+        handle.close()
+
+        p = subprocess.Popen(['java', '-jar', jarfile, tmpfile],
+                     stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+        elapsed = 0  # reset timer
+
+
 
 
 # sample tips to enforce size of tree
@@ -120,7 +161,11 @@ trees = Phylo.parse(outfile, 'newick')
 trees2 = []
 for tree in trees:
     tips = tree.get_terminals()
-    tips2 = sample(tips, context['ntips'])
+    try:
+        tips2 = sample(tips, ntips)
+    except ValueError:
+        tips2 = tips
+
     for tip in tips:
         tip.name = str(tip.confidence)
         if tip in tips2:
