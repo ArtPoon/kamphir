@@ -12,8 +12,8 @@ import time
 
 # TODO: allow user to set time limit and step for MASTER
 
-time_limit = 30  # seconds
-time_step = 5  # seconds
+time_limit = 30  # seconds - when do we reduce the number of tips
+time_step = 5  # seconds - how often we check the file for completion
 
 
 jarfile = '/Users/art/src/MASTER-2.0.0/dist/MASTER-2.0.0/MASTER-2.0.0.jar'
@@ -132,13 +132,16 @@ while 1:
     handle = open(outfile, 'rU')
     lines = handle.readlines()
     if len(lines) == context['nreps']:
+        # generated the requested number of replicates
         break
 
     elapsed += time_step
     if elapsed > time_limit:
         # taking too long - reduce requested number of tips
         p.kill()
-        context['ntips'] -= 10
+
+        # reduce requested number of tips by 20%
+        context['ntips'] = int(round(context['ntips'] * 0.8))
         if context['ntips'] < 2:
             print 'ERROR: ntips cannot be less than 2'
             sys.exit(1)
@@ -152,8 +155,6 @@ while 1:
                      stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
         elapsed = 0  # reset timer
-
-
 
 
 # sample tips to enforce size of tree
