@@ -275,7 +275,7 @@ class Kamphir (PhyloKernel):
         #trees = Phylo.parse(self.path_to_output_nwk, 'newick')
         return trees
 
-    def evaluate(self, trees=None, nthreads=None):
+    def evaluate(self, trees=None):
         """
         Wrapper to calculate mean kernel score for a simulated set
         of trees given proposed model parameters.
@@ -293,11 +293,7 @@ class Kamphir (PhyloKernel):
                     print 'WARNING: none of the trees managed to coalesce in simulation time - returning 0.'
                     return 0.
 
-        if nthreads is None:
-            # user has option to specify number of threads
-            nthreads = self.nthreads
-
-        if nthreads > 1:
+        if self.nthreads > 1:
             # output = mp.Queue()
             #processes = [mp.Process(target=self.compute,
             #                        args=(trees[i], output)) for i in range(self.nthreads)]
@@ -305,19 +301,18 @@ class Kamphir (PhyloKernel):
             #map(lambda p: p.join(), processes)
             ## collect results and calculate mean
             #res = [output.get() for p in processes]
-            pool = mp.Pool(processes=nthreads)
             try:
                 async_results = [apply_async(pool, self.compute, args=(tree,)) for tree in trees]
             except:
                 # TODO: dump trees to file for debugging
                 raise
 
-            pool.close()  # prevent any more tasks from being added - once completed, workers exit
+            #pool.close()  # prevent any more tasks from being added - once completed, workers exit
             map(mp.pool.ApplyResult.wait, async_results)
             results = [r.get() for r in async_results]
 
         else:
-            # single-threaded
+            # single-threaded mode
             results = [self.compute(tree) for tree in trees]
 
         try:
@@ -462,6 +457,8 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
+    # initialize multiprocessing thread pool at global scope
+    pool = mp.Pool(processes=args.nthreads)
 
     # start analysis
     if args.restart:
