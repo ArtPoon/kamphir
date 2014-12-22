@@ -5,7 +5,7 @@ In the proud tradition of naming phylognetic software with elaborate abbreviatio
 
 ##Dependencies
 * [dill](https://pypi.python.org/pypi/dill) - Python module that extends pickle module for serializing Python objects
-* 
+* [jinja2](http://jinja.pocoo.org/) - Python module for populating templates with Python objects.
 
 ##Optional
 * [MASTER](http://compevol.github.io/MASTER/) - Java module for reaction system-based simulation of epidemiological processes in the BEAST2 package
