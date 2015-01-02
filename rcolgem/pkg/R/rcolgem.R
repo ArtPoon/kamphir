@@ -193,36 +193,6 @@ rescale.binaryDatedTree <- function(bdt, ef)
 		.G		<- globalParms$G.(h)
 		list(.F=.F, .G=.G, .Y=.Y, FGY_INDEX=NA)
 	}
-#~ 	get.fgy <- function(h,t=NULL)
-#~ 	{
-#~ 		if (globalParms$USE_DISCRETE_FGY)
-#~ 		{
-#~ 			while (FGY_INDEX < globalParms$FGY_RESOLUTION &  h > globalParms$FGY_H_BOUNDARIES[FGY_INDEX])  
-#~ 			{
-#~ 				FGY_INDEX <- FGY_INDEX+1 ; 
-#~ 			}
-#~ 			if ( (FGY_INDEX > 1) ) 
-#~ 			{
-#~ 				while ( h< globalParms$FGY_H_BOUNDARIES[FGY_INDEX-1]) 
-#~ 				{
-#~ 					if (FGY_INDEX==1) break;
-#~ 					FGY_INDEX <- FGY_INDEX-1 ; 
-#~ 					#return(dA(h, A, parms))
-#~ 				} 
-#~ 			}
-#~ 			.Y		<- globalParms$Y.(FGY_INDEX)
-#~ 			.F		<- globalParms$F.(FGY_INDEX)
-#~ 			.G		<- globalParms$G.(FGY_INDEX)
-#~ 		} else
-#~ 		{
-#~ 			.Y		<- globalParms$Y.(t)
-#~ 			.F		<- globalParms$F.(t)
-#~ 			.G		<- globalParms$G.(t)
-#~ 			FGY_INDEX <- NA
-#~ 		}
-#~ 		list(.F=.F, .G=.G, .Y=.Y, FGY_INDEX=FGY_INDEX)
-#~ 	}
-	
 	#DEBUG
 	#with( get.fgy(0), {print(.Y); print(.F)  })
 	#browser()
@@ -231,7 +201,7 @@ rescale.binaryDatedTree <- function(bdt, ef)
 		# conditional on no coalescent
 		t <- parms$treeT - h
 		A <- parms$A
-		fgy <- get.fgy(h,t)
+		fgy <- get.fgy(h) #, t
 		with( fgy, 
 		{
 			.F * (A / .Y)^2# *  (A-1) / max((.Y-1), 0.01)
@@ -242,9 +212,13 @@ rescale.binaryDatedTree <- function(bdt, ef)
 	.solve.L <- function(h0, h1, L,  A0 ) 
 	{
 		parameters 		<- list(treeT = tree$maxSampleTime, m = tree$m, A=A0)
-			tryCatch({
-						out0 <- ode(y=L, times=c(h0, h1), func=.dL.unstructuredModel, parms=parameters, FGY_INDEX=FGY_INDEX, method=globalParms$INTEGRATIONMETHOD ) 
-					}, error = function(e) browser() )
+			out0 <- tryCatch({
+						out0 <- ode(y=L, times=c(h0, h1), func=.dL.unstructuredModel, parms=parameters, FGY_INDEX=FGY_INDEX, method=globalParms$INTEGRATIONMETHOD )  #
+#~ 						print(out0)
+#~ 						print(get.fgy(h1))
+						out0
+					}, error = function(e) NA )
+			if (is.na(out0)) return( list( L, NA))
 			L1 <- unname( out0[nrow(out0),2] )
 			FGY_INDEX <- unname( out0[nrow(out0),3] )
 			return( list( L1, FGY_INDEX) )
@@ -292,8 +266,8 @@ rescale.binaryDatedTree <- function(bdt, ef)
 				#ratekl <- .F * (A0 / .Y) *  (A0-1) / max((.Y-1), 0.01)
 				tree$coalescentRates[alpha] <- ratekl
 				tree$coalescentSurvivalProbability[alpha] <- S
+				tree$logCoalescentSurvivalProbability[alpha] <- log(S)
 			}
-			
 			L<-0
 		}
 	}
@@ -700,7 +674,7 @@ coalescent.log.likelihood.fgy <- function(bdt, times, births, migrations, demeSi
 		internalHeights <- tree$heights[(length(tree$tip.label)+1):length(tree$heights)]
 		i <- i[internalHeights <= censorAtHeight] 
 	}
-	ll <- sum( log(tree$coalescentRates[i]) ) + sum( tree$logCoalescentSurvivalProbability[i] )#sum( log(tree$coalescentSurvivalProbability[i]) ) 
+	ll <- sum( log(tree$coalescentRates[i]) ) + sum( log(tree$coalescentSurvivalProbability[i] ))
 	if (censorAtHeight) { ll<- tree$Nnode *  ll/length(i)}
 	if (is.nan(ll) | is.na(ll) ) ll <- -Inf
 	#~ 	ifelse(returnTree, list( ll, tree), ll) #for debugging
@@ -1329,7 +1303,10 @@ if (s!=1) warning('Tree simulator assumes times given in equal increments')
 		sampled.at.h <- function(h) which(sortedSampleHeights==h)
 
 		haxis <- seq(0, maxHeight, length.out=fgyParms$FGY_RESOLUTION)
-		AplusNotSampled <- ode( y = colSums(sortedSampleStates), times = haxis, func=dA, parms=NA, method = integrationMethod)[, 2:(m+1)]
+		#AplusNotSampled <- ode( y = colSums(sortedSampleStates), times = haxis, func=dA, parms=NA, method = integrationMethod)[, 2:(m+1)]
+		odA <-  ode( y = colSums(sortedSampleStates), times = haxis, func=dA, parms=NA, method = 'adams')
+	    haxis <- odA[,1]
+	    AplusNotSampled <- odA[, 2:(m+1)]
 		AplusNotSampled <- as.matrix(AplusNotSampled, nrows=length(haxis))
 		Amono <- rowSums( AplusNotSampled )
 		Amono[is.na(Amono)] <- min(Amono[!is.na(Amono)] )
@@ -1409,7 +1386,8 @@ if (s!=1) warning('Tree simulator assumes times given in equal increments')
 
 			# clean output
 			if (is.nan(L)) {L <- Inf}
-			if (sum(is.nan(Q)) > 0) { return(NA) }#browser() #Q <- diag(length(A))
+			#if (sum(is.nan(Q)) > 0) { return(NA) }#browser() #Q <- diag(length(A))
+			if (sum(is.nan(Q)) > 0) Q <- diag(length(A))
 			if (sum(is.nan(A)) > 0) A <- A0
 
 			#update mstates
@@ -1912,7 +1890,10 @@ if (s!=1) warning('Tree simulator assumes times given in equal increments')
 	sampled.at.h <- function(h) which(sortedSampleHeights==h)
 	extantLines <- sampled.at.h(h0)
 	haxis <- seq(0, maxHeight, length.out=fgyParms$FGY_RESOLUTION)
-	AplusNotSampled <- ode( y = colSums(sortedSampleStates), times = haxis, func=dA, parms=NA, method = integrationMethod)[, 2:(m+1)]
+	#AplusNotSampled <- ode( y = colSums(sortedSampleStates), times = haxis, func=dA, parms=NA, method = integrationMethod)[, 2:(m+1)]
+	odA <- ode( y = colSums(sortedSampleStates), times = haxis, func=dA, parms=NA, method = 'adams')
+	haxis <- odA[,1]
+	AplusNotSampled <- odA[, 2:(m+1)]
 	Amono <- rowSums( AplusNotSampled)
 	Amono[is.na(Amono)] <- min(Amono[!is.na(Amono)] )
 	Amono <- Amono - min(Amono)

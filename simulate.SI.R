@@ -19,7 +19,7 @@ n.cores <- 6  # for simulation in parallel
 ## default settings
 nreps = 10
 fgyResolution = 500.  # large value gives smaller time step
-integrationMethod = 'rk4'
+integrationMethod = 'adams'
 t0 = 0
 t_end = 30.*52  # weeks
 

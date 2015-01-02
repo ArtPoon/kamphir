@@ -14,7 +14,7 @@ integrationMethod = 'rk4'
 t0 = 0
 t.end = 30.*52  # weeks
 
-N = 10000  # total population size
+N = 1000  # total population size
 S = N-1
 I = 1
 x0 <- c(I=I, S=S)  # initial population frequencies
@@ -42,8 +42,8 @@ nonDemeDynamics <- paste(sep='', '-parms$mu*S + parms$mu*S + (parms$mu+parms$gam
 names(nonDemeDynamics) <- 'S'
 
 # assume collection dates uniformly distributed over last 5 years
-sampleTimes <- rep(t.end, times=n.tips)
-#sampleTimes <- rep(t.end, times=n.tips) - runif(n.tips, min=0, max=5.*52)
+#sampleTimes <- rep(t.end, times=n.tips)
+sampleTimes <- rep(t.end, times=n.tips) - runif(n.tips, min=0, max=5.*52)
 sampleStates <- matrix(1, nrow=n.tips, ncol=length(demes))
 colnames(sampleStates) <- demes
 rownames(sampleStates) <- paste(sep='_', 1:n.tips, as.integer(sampleTimes))
