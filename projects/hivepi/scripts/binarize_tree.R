@@ -8,9 +8,6 @@ output.nwk <- args[2]
 if (!file.exists(input.nwk)) {
 	stop('input file does not exist')
 }
-if (!file.exists(output.nwk)) {
-	stop('output file does not exist')
-}
 
 require(ape, quietly=TRUE)
 tree <- read.tree(input.nwk)

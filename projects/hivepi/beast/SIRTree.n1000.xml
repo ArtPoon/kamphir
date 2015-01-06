@@ -2039,7 +2039,7 @@ name="alignment"/>
         </tree>
         <parameter id="clockRate.c:SIRTree1" name="stateNode">1.0</parameter>
         <parameter id="kappa.s:SIRTree1" lower="0.0" name="stateNode">10.0</parameter>
-        <parameter id="originEs.t:SIRTree1" lower="0.0" name="stateNode" upper="1000.0">10.0</parameter>
+        <parameter id="originEs.t:SIRTree1" lower="0.0" name="stateNode" upper="1000.0">20.0</parameter>
         <parameter id="samplingProportionEs.t:SIRTree1" lower="0.0" name="stateNode" upper="1.0">0.1</parameter>
         <parameter id="becomeUninfectiousRateEs.t:SIRTree1" lower="0.0" name="stateNode" upper="10.0">1.0</parameter>
         <parameter id="R0Es.t:SIRTree1" lower="0.0" name="stateNode" upper="10.0">2.0</parameter>
