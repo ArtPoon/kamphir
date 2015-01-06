@@ -7,8 +7,8 @@
                                 :master.postprocessors'>
     <run spec='InheritanceTrajectory'
          samplePopulationSizes="true"
-         verbosity="0"
-         simulationTime="30">
+         verbosity="1"
+         simulationTime="15">
 
         <model spec='Model' id='model'>
             <population spec='Population' id='S' populationName='S'/>
@@ -16,7 +16,7 @@
             <population spec='Population' id='R' populationName='R'/>
             <population spec='Population' id='I_sample' populationName='I_sample'/>
 
-            <reaction spec='Reaction' reactionName="Infection" rate="0.001">
+            <reaction spec='Reaction' reactionName="Infection" rate="0.0001">
                 S + I -> 2I
             </reaction>
             <reaction spec='Reaction' reactionName="Recovery" rate="0.3">
@@ -28,14 +28,14 @@
         </model>
 
         <initialState spec='InitState'>
-            <populationSize spec='PopulationSize' population='@S' size='499'/>
+            <populationSize spec='PopulationSize' population='@S' size='9999'/>
             <lineageSeed spec='Individual' population='@I'/>
         </initialState>
 
         <inheritancePostProcessor spec="LineageFilter" reactionName="Sampling"/>
-        <postSimCondition spec='LeafCountPostSimCondition' nLeaves="100" exact="false"/>
+        <postSimCondition spec='LeafCountPostSimCondition' nLeaves="1000" exact="false"/>
 
         <output spec='NewickOutput' fileName='SIRTree_output.nwk' collapseSingleChildNodes="true"/>
-        <!--<output spec='JsonOutput' fileName='SIRTree_output.json'/>-->
+        <output spec='JsonOutput' fileName='SIRTree_output.json'/>
     </run>
 </beast>
