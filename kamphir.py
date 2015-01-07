@@ -167,7 +167,13 @@ class Kamphir (PhyloKernel):
             for key in self.current.iterkeys():
                 sigma = self.settings[key]['sigma'] * tuning
                 while True:
-                    proposal_value = self.current[key] + random.normalvariate(0, sigma)
+                    if self.settings[key]['log'].upper()=='TRUE':
+                        # log-normal proposal - NOTE mean and sigma are on natural log scale
+                        proposal_value = random.lognormvariate(math.log(self.current[key]), sigma)
+                    else:
+                        # Gaussian
+                        proposal_value = random.normalvariate(self.current[key], sigma)
+
                     if self.settings[key].has_key('min') and proposal_value < self.settings[key]['min']:
                         continue
                     if self.settings[key].has_key('max') and proposal_value > self.settings[key]['max']:
