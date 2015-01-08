@@ -2,6 +2,7 @@
 #log <- read.table('~/git/kamphir/projects/hivepi/beast/MASTER1.log', sep='\t', header=TRUE)
 log <- read.table('~/git/kamphir/projects/hivepi/beast/SIRTree.n100.log', sep='\t', header=TRUE)
 
+# true R0 is 3.33 (0.001*999/0.3)
 log$beta <- log$R0Es * log$becomeUninfectiousRateEs / log$S0Es
 
 par(family='sans', mfrow=c(2,2))
