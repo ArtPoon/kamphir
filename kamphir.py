@@ -113,7 +113,7 @@ class Kamphir (PhyloKernel):
             tipdates = []
             for tip in tips:
                 try:
-                    items = tip.name.split(delimiter)
+                    items = tip.name.strip("'").split(delimiter)
                     tipdate = float(items[position])
                     if tipdate > maxdate:
                         maxdate = tipdate
