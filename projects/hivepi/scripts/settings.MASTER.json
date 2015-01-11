@@ -23,7 +23,7 @@
         "max": 0.01,
         "initial": 0.001,
         "prior": "lognorm(0.5)",
-        "sigma": 0.0003,
+        "sigma": 0.0005,
         "log": "false"
     },
     "p": {
