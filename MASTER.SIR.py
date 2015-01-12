@@ -12,8 +12,8 @@ import time
 
 # TODO: allow user to set time limit and step for MASTER
 
-time_limit = 30  # seconds - when do we reduce the number of tips
-time_step = 5  # seconds - how often we check the file for completion
+time_limit = 60  # seconds - when do we reduce the number of tips
+time_step = 10 # seconds - how often we check the file for completion
 
 
 #jarfile = '/Users/art/src/MASTER-2.0.0/dist/MASTER-2.0.0/MASTER-2.0.0.jar'
@@ -143,7 +143,7 @@ while 1:
 
         # reduce requested number of tips by 20%
         context['ntips'] = int(round(context['ntips'] * 0.8))
-        if context['ntips'] < 2:
+        if context['ntips'] < 10:
             print 'ERROR: ntips cannot be less than 2'
             sys.exit(1)
 
