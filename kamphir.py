@@ -250,7 +250,8 @@ class Kamphir (PhyloKernel):
         handle = open(self.path_to_label_csv, 'w')
         for i in range(self.ntips):
             handle.write('%d,%s\n' % (
-                1 if i < (self.ntips*self.proposed['p']) else 2,
+                1 + int(random.random() < self.proposed['p']),
+                #1 if i < (self.ntips*self.proposed['p']) else 2,
                 self.tip_heights[i]
             ))
         handle.close()
@@ -263,7 +264,7 @@ class Kamphir (PhyloKernel):
         p.wait()
         """
         os.system(' '.join([self.driver, self.path_to_script, self.path_to_input_csv,
-                            self.path_to_label_csv, self.path_to_output_nwk]))
+                            self.path_to_label_csv, self.path_to_output_nwk]) + ' >/dev/null')
 
         # retrieve trees from output file
         trees = []

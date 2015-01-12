@@ -1,6 +1,6 @@
 #!/usr/bin/env Rscript
 args <- commandArgs(TRUE)
-#args <- c('/tmp/input.csv', '/tmp/tips.csv', '/tmp/output.nwk')
+#args <- c('/tmp/input_38502.csv', '/tmp/tips_38502.csv', '/tmp/output_38502.nwk')
 
 if (length(args) != 3) { stop('Usage: mapCasesToFSA.R <input CSV> <tips CSV> <output NWK>') }
 input.csv = args[1]  # simulation and model parameter settings
@@ -24,6 +24,7 @@ t0 = 0
 t_end = 30.*52  # weeks
 
 # model parameters (per week)
+N = 1000  # total population size
 beta1 = 0.01
 beta2 = 0.001
 alpha = 0.01  # transition rate from acute to chronic
@@ -36,14 +37,13 @@ for (i in 1:nrow(inputs)) {
 	eval(parse(text=paste(sep='', inputs[i,1], '<-', inputs[i,2])))
 }
 
-parms <- list(alpha=alpha, beta=beta, gamma=gamma, mu=mu)
+parms <- list(alpha=alpha, beta1=beta1, beta2=beta2, gamma=gamma, mu=mu)
 if (any(parms<0)) {
 	stop ('No negative values permitted for model parameters.')
 }
 
 
 # initial population frequencies
-N = 1000  # total population size
 S = N-1
 I1 = 1
 I2 = 0
@@ -67,7 +67,7 @@ deaths <- c('parms$mu*I1', '(parms$mu+parms$gamma)*I2')
 names(deaths) <- demes
 
 # dynamics for susceptible class (S) - complete replacement
-nonDemeDynamics <- paste(sep='', '-parms$mu*S + parms$mu*(S+I1+I2)', '-S*(parms$beta1*I1 + parms$beta2*I2) / (S+I1+I2)')
+nonDemeDynamics <- paste(sep='', '-parms$mu*S + parms$mu*S + (parms$mu+parms$gamma)*(I1+I2)', '-S*(parms$beta1*I1 + parms$beta2*I2) / (S+I1+I2)')
 names(nonDemeDynamics) <- 'S'
 
 
@@ -110,7 +110,7 @@ maxSampleTime <- max(sampleTimes)
 tfgy <- make.fgy( t0, maxSampleTime, births, deaths, nonDemeDynamics,  x0,  migrations=migrations,  parms=parms, fgyResolution = fgyResolution, integrationMethod = integrationMethod )
 
 # simulate trees
-trees <- simulate.binary.dated.tree.fgy( tfgy[[1]], tfgy[[2]], tfgy[[3]], tfgy[[4]], sampleTimes, sampleStates, integrationMethod = integrationMethod, n.reps=n.reps, n.cores=ncores)
+trees <- simulate.binary.dated.tree.fgy( tfgy[[1]], tfgy[[2]], tfgy[[3]], tfgy[[4]], sampleTimes, sampleStates, integrationMethod = integrationMethod, n.reps=nreps, n.cores=n.cores)
 
 'multiPhylo' -> class(trees)
 
