@@ -1,0 +1,74 @@
+{
+    "t_end": {
+        "weight": 1.0,
+        "min": 520,
+        "max": 2600,
+        "initial": 1500.0,
+        "prior": "uniform(loc=520, scale=2600)",
+        "sigma": 10.0,
+        "log": "false"
+    },
+    "N": {
+        "weight": 1.0,
+        "min": 100.0,
+        "max": 500000.0,
+        "initial": 50000.0,
+        "prior": "norm(loc=8000, scale=3000)",
+        "sigma": 0.2,
+        "log": "true"
+    },
+    "beta1": {
+        "weight": 1.0,
+        "min": 0.0,
+        "max": 1.0,
+        "initial": 0.01,
+        "prior": "lognorm(0.5)",
+        "sigma": 0.2,
+        "log": "true"
+    },
+    "beta2": {
+        "weight": 1.0,
+        "min": 0.0,
+        "max": 1.0,
+        "initial": 0.01,
+        "prior": "lognorm(0.5)",
+        "sigma": 0.2,
+        "log": "true"
+    },
+    "alpha": {
+        "weight": 1.0,
+        "min": 0.0,
+        "max": 0.5,
+        "initial": 0.025,
+        "prior": "lognorm(1)",
+        "sigma": 0.2,
+        "log": "true"
+    },
+    "gamma": {
+        "weight": 1.0,
+        "min": 0,
+        "max": 0.01,
+        "initial": 0.001,
+        "prior": "",
+        "sigma": 0.1,
+        "log": "true"
+    },
+    "mu": {
+        "weight": 1.0,
+        "min": 0,
+        "max": 0.01,
+        "initial": 0.0002,
+        "prior": "",
+        "sigma": 0.1,
+        "log": "true"
+    },
+    "p": {
+        "weight": 1.0,
+        "initial": 0.05,
+        "min": 0,
+        "max": 0.5,
+        "prior": "",
+        "sigma": 0.01,
+        "log": "false"
+    }
+}
