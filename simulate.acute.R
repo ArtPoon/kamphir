@@ -63,7 +63,7 @@ rownames(births)=colnames(births) <- demes
 migrations <- rbind(c('0', 'parms$alpha * I1'), c('0', '0'))
 rownames(migrations)=colnames(migrations) <- demes
 
-deaths <- c('parms$mu*I1', '(parms$mu+parms$gamma)*I2')
+deaths <- c('(parms$mu)*I1', '(parms$mu+parms$gamma)*I2')
 names(deaths) <- demes
 
 # dynamics for susceptible class (S) - complete replacement

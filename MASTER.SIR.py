@@ -16,8 +16,8 @@ time_limit = 60  # seconds - when do we reduce the number of tips
 time_step = 10 # seconds - how often we check the file for completion
 
 
-#jarfile = '/Users/art/src/MASTER-2.0.0/dist/MASTER-2.0.0/MASTER-2.0.0.jar'
-jarfile = '/home/art/src/MASTER-2.0.0/MASTER-2.0.0.jar'
+jarfile = '/Users/art/src/MASTER-2.0.0/dist/MASTER-2.0.0/MASTER-2.0.0.jar'
+#jarfile = '/home/art/src/MASTER-2.0.0/MASTER-2.0.0.jar'
 FNULL = open(os.devnull, 'w')
 
 try:
