@@ -2,7 +2,6 @@
 Estimate epidemic model parameters by comparing simulations to "observed" phylogeny.
 """
 import os
-import datetime
 from pylab import *
 
 from phyloK2 import *
@@ -265,7 +264,7 @@ class Kamphir (PhyloKernel):
         p.wait()
         """
         os.system(' '.join([self.driver, self.path_to_script, self.path_to_input_csv,
-                            self.path_to_label_csv, self.path_to_output_nwk]))
+                            self.path_to_label_csv, self.path_to_output_nwk]) + ' >/dev/null')
 
         #print '[%s] read trees' % datetime.datetime.now().isoformat()
 
@@ -338,9 +337,7 @@ class Kamphir (PhyloKernel):
                 [trees] simulated trees (for debugging)
         """
         if trees is None:
-            #print '[%s] start simulation' % (datetime.datetime.now().isoformat(), )
             trees = self.simulate()
-            #print '[%s] return from simulation' % datetime.datetime.now().isoformat()
 
             if len(trees) < self.nreps:
                 #print 'WARNING: tree sample size reduced to', len(trees)
@@ -357,18 +354,14 @@ class Kamphir (PhyloKernel):
             ## collect results and calculate mean
             #res = [output.get() for p in processes]
             try:
-                #print '[%s] starting pool' % datetime.datetime.now().isoformat()
                 async_results = [apply_async(pool, self.compute, args=(tree,)) for tree in trees]
             except:
                 # TODO: dump trees to file for debugging
                 raise
 
             #pool.close()  # prevent any more tasks from being added - once completed, workers exit
-            #print '[%s] before map' % datetime.datetime.now().isoformat()
             map(mp.pool.ApplyResult.wait, async_results)
-            #print '[%s] after map' % datetime.datetime.now().isoformat()
             results = [r.get() for r in async_results]
-            #print '[%s] after get results' % datetime.datetime.now().isoformat()
 
         else:
             # single-threaded mode
