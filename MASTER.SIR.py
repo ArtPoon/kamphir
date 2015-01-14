@@ -17,8 +17,8 @@ time_limit = 60  # seconds - when do we reduce the number of tips
 time_step = 10 # seconds - how often we check the file for completion
 
 
-#jarfile = '/Users/art/src/MASTER-2.0.0/dist/MASTER-2.0.0/MASTER-2.0.0.jar'
-jarfile = '/Users/art/src/MASTER-2.0.0/MASTER-2.0.0.jar'
+jarfile = '/Users/art/src/MASTER-2.0.0/dist/MASTER-2.0.0/MASTER-2.0.0.jar'
+#jarfile = '/Users/art/src/MASTER-2.0.0/MASTER-2.0.0.jar'
 #jarfile = '/home/art/src/MASTER-2.0.0/MASTER-2.0.0.jar'
 FNULL = open(os.devnull, 'w')
 
@@ -107,12 +107,13 @@ handle.close()
 
 # FIXME: MASTER tends to generate larger trees than requested
 # FIXME: setting post filter to "exact" is extremely inefficient
-# FIXME: as a quick work-around, request same number of tips as simulation
 # infer number of tips from tip label CSV
 handle = open(tipfile, 'rU')
 context['ntips'] = len(handle.readlines())
 handle.close()
-context['ntips'] = int(round(context['ntips'] * 0.8))
+
+# reduce requested number of tips for more efficient simulation
+context['ntips'] = int(round(context['ntips'] * 0.5))
 
 # populate template from context
 handle = open(tmpfile, 'w')
@@ -169,30 +170,3 @@ p.kill()
 
 #print '[%s] reached target number of trees' % datetime.now().isoformat()
 
-# sample tips to enforce size of tree
-trees = Phylo.parse(outfile, 'newick')
-trees2 = []
-while True:
-    try:
-        tree = trees.next()
-    except StopIteration:
-        break
-    except NewickError:
-        continue
-        
-    tips = tree.get_terminals()
-    try:
-        tips2 = sample(tips, ntips)
-    except ValueError:
-        tips2 = tips
-
-    for tip in tips:
-        tip.name = str(tip.confidence)
-        if tip in tips2:
-            continue
-        _ = tree.prune(tip)
-    trees2.append(tree)
-
-#print '[%s] pruned trees' % datetime.now().isoformat()
-
-Phylo.write(trees2, outfile, 'newick')

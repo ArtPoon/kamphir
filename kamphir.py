@@ -229,7 +229,7 @@ class Kamphir (PhyloKernel):
         output.put(knorm)  # MP
 
 
-    def simulate(self):
+    def simulate(self, prune=True):
         """
         Estimate the mean kernel distance between the reference tree and
         trees simulated under the given model parameters.
@@ -267,6 +267,8 @@ class Kamphir (PhyloKernel):
         os.system(' '.join([self.driver, self.path_to_script, self.path_to_input_csv,
                             self.path_to_label_csv, self.path_to_output_nwk]))
 
+        #print '[%s] read trees' % datetime.datetime.now().isoformat()
+
         # retrieve trees from output file
         trees = []
         handle = open(self.path_to_output_nwk, 'rU')
@@ -277,11 +279,54 @@ class Kamphir (PhyloKernel):
                 # NewickError: Number of open/close parentheses do not match
                 print 'WARNING: Discarding mangled tree.'
                 continue
+
+            # check tip names
+            tips = tree.get_terminals()
+            for tip in tips:
+                if tip.name is None:
+                    tip.name = str(tip.confidence)
+
             trees.append(tree)
         handle.close()
 
+        #print '[%s] before prune, nthreads=%d' % (datetime.datetime.now().isoformat(), self.nthreads)
+        if prune:
+            if self.nthreads > 1:
+                try:
+                    async_results = [apply_async(pool, self.prune_tree, args=(tree, self.ntips)) for tree in trees]
+                except:
+                    raise
+
+                map(mp.pool.ApplyResult.wait, async_results)
+                trees = [r.get() for r in async_results]
+            else:
+                trees = [self.prune_tree(tree, self.ntips) for tree in trees]
+
+        #print '[%s] after prune' % datetime.datetime.now().isoformat()
+
         #trees = Phylo.parse(self.path_to_output_nwk, 'newick')
         return trees
+
+    def prune_tree(self, tree, target_size):
+        """
+        Sample a random number of tips in the tree and prune the rest.
+        :param tree:
+        :param target_size:
+        :return:
+        """
+        tips = tree.get_terminals()
+        try:
+            tips2 = random.sample(tips, self.ntips)
+        except ValueError:
+            tips2 = tips
+
+        for tip in tips:
+            if tip in tips2:
+                continue
+            _ = tree.prune(tip)
+
+        return tree
+
 
     def evaluate(self, trees=None):
         """
