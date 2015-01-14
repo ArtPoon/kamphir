@@ -11,19 +11,19 @@
     "N": {
         "weight": 2.0,
         "min": 200.0,
-        "max": 100000.0,
-        "initial": 2000.0,
+        "max": 500000.0,
+        "initial": 20000.0,
         "prior": "norm(loc=8000, scale=3000)",
         "sigma": 0.2,
         "log": "true"
     },
     "beta": {
         "weight": 2.0,
-        "min": 0.0001,
+        "min": 0.00003,
         "max": 0.01,
-        "initial": 0.001,
+        "initial": 0.0005,
         "prior": "lognorm(0.5)",
-        "sigma": 0.0005,
+        "sigma": 0.0001,
         "log": "false"
     },
     "p": {
