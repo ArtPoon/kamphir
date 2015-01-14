@@ -168,32 +168,6 @@ while 1:
 
 p.kill()
 
-# sample tips to enforce size of tree
-trees = Phylo.parse(outfile, 'newick')
-trees2 = []
-while True:
-    try:
-        tree = trees.next()
-    except StopIteration:
-        break
-    except NewickError:
-        continue
-
-for tree in trees:
-    tips = tree.get_terminals()
-    try:
-        tips2 = sample(tips, ntips)
-    except ValueError:
-        tips2 = tips
-
-    for tip in tips:
-        tip.name = str(tip.confidence)
-        if tip in tips2:
-            continue
-        _ = tree.prune(tip)
-    trees2.append(tree)
-
-Phylo.write(trees2, outfile, 'newick')
 
 # sample tips to enforce size of tree
 trees = Phylo.parse(outfile, 'newick')
