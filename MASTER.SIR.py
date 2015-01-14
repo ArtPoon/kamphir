@@ -16,12 +16,9 @@ time_limit = 60  # seconds - when do we reduce the number of tips
 time_step = 10 # seconds - how often we check the file for completion
 
 
-jarfile = '/Users/art/src/MASTER-2.0.0/dist/MASTER-2.0.0/MASTER-2.0.0.jar'
-<<<<<<< HEAD
+#jarfile = '/Users/art/src/MASTER-2.0.0/dist/MASTER-2.0.0/MASTER-2.0.0.jar'
 #jarfile = '/Users/art/src/MASTER-2.0.0/MASTER-2.0.0.jar'
-=======
->>>>>>> parent of 7bd986f... resolved slow processing problem for large trees
-#jarfile = '/home/art/src/MASTER-2.0.0/MASTER-2.0.0.jar'
+jarfile = '/home/art/src/MASTER-2.0.0/MASTER-2.0.0.jar'
 FNULL = open(os.devnull, 'w')
 
 try:
@@ -113,12 +110,9 @@ handle.close()
 handle = open(tipfile, 'rU')
 context['ntips'] = len(handle.readlines())
 handle.close()
-<<<<<<< HEAD
 
 # reduce requested number of tips for more efficient simulation
 context['ntips'] = int(round(context['ntips'] * 0.5))
-=======
->>>>>>> parent of 7bd986f... resolved slow processing problem for large trees
 
 # populate template from context
 handle = open(tmpfile, 'w')
