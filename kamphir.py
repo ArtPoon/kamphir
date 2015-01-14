@@ -280,16 +280,11 @@ class Kamphir (PhyloKernel):
                 print 'WARNING: Discarding mangled tree.'
                 continue
 
-            # check tip names
-            tips = tree.get_terminals()
-            for tip in tips:
-                if tip.name is None:
-                    tip.name = str(tip.confidence)
-
             trees.append(tree)
         handle.close()
 
         #print '[%s] before prune, nthreads=%d' % (datetime.datetime.now().isoformat(), self.nthreads)
+        """
         if prune:
             if self.nthreads > 1:
                 try:
@@ -301,6 +296,7 @@ class Kamphir (PhyloKernel):
                 trees = [r.get() for r in async_results]
             else:
                 trees = [self.prune_tree(tree, self.ntips) for tree in trees]
+        """
 
         #print '[%s] after prune' % datetime.datetime.now().isoformat()
 
