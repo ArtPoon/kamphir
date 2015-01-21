@@ -288,7 +288,7 @@ class Kamphir (PhyloKernel):
         if prune:
             if self.nthreads > 1:
                 try:
-                    async_results = [apply_async(pool, self.prune_tree, args=(tree, self.ntips)) for tree in trees]
+                    async_results = [apply_async(pool, self.prune_tree, args=(tree, )) for tree in trees]
                 except:
                     raise
 
@@ -296,14 +296,14 @@ class Kamphir (PhyloKernel):
                 trees = [r.get() for r in async_results]
             else:
                 trees = [self.prune_tree(tree, self.ntips) for tree in trees]
-        """
 
         #print '[%s] after prune' % datetime.datetime.now().isoformat()
+        """
 
         #trees = Phylo.parse(self.path_to_output_nwk, 'newick')
         return trees
 
-    def prune_tree(self, tree, target_size):
+    def prune_tree(self, tree):
         """
         Sample a random number of tips in the tree and prune the rest.
         :param tree:

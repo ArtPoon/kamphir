@@ -31,8 +31,11 @@ except:
     sys.exit(1)
 
 # get parent process ID from filename
-pid = int(infile.split('.')[0].split('_')[-1])
-tmpfile = '/tmp/MASTER.SIR.%d.xml' % pid
+try:
+    pid = int(infile.split('.')[0].split('_')[-1])
+    tmpfile = '/tmp/MASTER.SIR.%d.xml' % pid
+except:
+    tmpfile = '/tmp/MASTER.SIR.xml'
 
 jenv = jinja2.Environment(
     block_start_string='{%',
@@ -125,10 +128,10 @@ if os.path.exists(outfile):
     os.remove(outfile)
 
 # call MASTER
-#print '[%s] calling master2' % datetime.now().isoformat()
+print '[%s] calling master2' % datetime.now().isoformat()
 
 #os.system('master2 %s > /dev/null' % tmpfile)
-p = subprocess.Popen(['java', '-Xms512m', '-Xmx1024m', '-jar', jarfile, tmpfile],
+p = subprocess.Popen(['java', '-Xms512m', '-Xmx2048m', '-jar', jarfile, tmpfile],
                      stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
 # check if outfile has expected number of lines
@@ -148,20 +151,20 @@ while 1:
         p.kill()
 
         # reduce requested number of tips by 20%
-        context['ntips'] = int(round(context['ntips'] * 0.8))
-        if context['ntips'] < 10:
+        context['ntips'] = int(round(context['ntips'] * 0.5))
+        if context['ntips'] < 30:
             print 'ERROR: ntips cannot be less than 2'
             sys.exit(1)
 
-        #print '[%s] reached time limit - reduced ntips to %d' % (datetime.now().isoformat(),
-        #    context['ntips'])
+        print '[%s] reached time limit - reduced ntips to %d' % (datetime.now().isoformat(),
+            context['ntips'])
         
         # update template
         handle = open(tmpfile, 'w')
         handle.write(template.render(context))
         handle.close()
 
-        p = subprocess.Popen(['java', '-Xms512m', '-Xmx1024m', '-jar', jarfile, tmpfile],
+        p = subprocess.Popen(['java', '-Xms512m', '-Xmx2048m', '-jar', jarfile, tmpfile],
                      stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
         elapsed = 0  # reset timer
@@ -185,11 +188,16 @@ while True:
     try:
         tips2 = sample(tips, ntips)
     except ValueError:
-        tips2 = tips
+        # sample size exceeds population
+        trees2.append(tree)
+        continue
+
+    # dict object provides faster lookup
+    keep = dict([(tip, 0) for tip in tips2])
 
     for tip in tips:
         tip.name = str(tip.confidence)
-        if tip in tips2:
+        if tip in keep:
             continue
         _ = tree.prune(tip)
     trees2.append(tree)

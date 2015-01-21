@@ -1,3 +1,4 @@
+require(vioplot)
 my.vioplot <- function (x, ..., range = 1.5, h = NULL, ylim = NULL, names = NULL, 
     horizontal = FALSE, col = "magenta", border = "black", lty = 1, 
     lwd = 1, rectCol = "black", colMed = "white", pchMed = 19, 
@@ -101,23 +102,34 @@ my.vioplot <- function (x, ..., range = 1.5, h = NULL, ylim = NULL, names = NULL
         q1 = q1, q3 = q3))
 }
 
+# true tree heights
+# n100 - 19.68
+# n300 - 18.07
+# n1000 - 12.73
 
 # load kamphir logs
-n100 <- read.table('~/git/kamphir/projects/hivepi/data/SIRTree.n100.RLRootToTip.timetree.log', header=T, sep='\t')
-temp <- read.table('~/git/kamphir/projects/hivepi/data/SIRTree.n100.RLRootToTip.timetree.log.7', header=T, sep='\t')
-n100 <- rbind(n100[100:nrow(n100),], temp[1000:nrow(temp),])
-temp <- read.table('~/git/kamphir/projects/hivepi/data/SIRTree.n100.RLRootToTip.timetree.restart.7.log.1', header=T, sep='\t')
-n100 <- rbind(n100, temp)
+# n100 <- read.table('~/git/kamphir/projects/hivepi/data/SIRTree.n100.RLRootToTip.timetree.log', header=T, sep='\t')
+# temp <- read.table('~/git/kamphir/projects/hivepi/data/SIRTree.n100.RLRootToTip.timetree.log.7', header=T, sep='\t')
+# n100 <- rbind(n100[100:nrow(n100),], temp[1000:nrow(temp),])
+# temp <- read.table('~/git/kamphir/projects/hivepi/data/SIRTree.n100.RLRootToTip.timetree.restart.7.log.1', header=T, sep='\t')
+# n100 <- rbind(n100, temp)
 
-n300 <- read.table('~/git/kamphir/projects/hivepi/data/SIRTree.n300.RLRootToTip.timetree.log.2', header=T, sep='\t')
-temp <- read.table('~/git/kamphir/projects/hivepi/data/SIRTree.n300.RLRootToTip.timetree.log.6', header=T, sep='\t')
-n300 <- rbind(n300[100:nrow(n300),], temp[100:nrow(temp),])
+# tau = 2.0
+n100 <- read.table('~/git/kamphir/projects/hivepi/data/SIRTree.n100.RLRootToTip.timetree.gauss.log.1', header=TRUE, sep='\t')
+temp <- read.table('~/git/kamphir/projects/hivepi/data/SIRTree.n100.RLRootToTip.timetree.gauss.log.2', header=TRUE, sep='\t')
+n100 <- rbind(n100[10:nrow(n100),], temp)
 
-n1000 <- read.table('~/git/kamphir/projects/hivepi/data/SIRTree.n1000.RLRootToTip.timetree.log', header=T, sep='\t')
-temp <- read.table('~/git/kamphir/projects/hivepi/data/SIRTree.n1000.RLRootToTip.timetree.log.3', header=T, sep='\t')
-n1000 <- rbind(n1000[100:nrow(n1000),], temp[100:nrow(temp),])
-temp <- read.table('~/git/kamphir/projects/hivepi/data/SIRTree.n1000.RLRootToTip.timetree.restart.log.2', header=T, sep='\t')
-n1000 <- rbind(n1000, temp)
+
+#n300 <- read.table('~/git/kamphir/projects/hivepi/data/SIRTree.n300.RLRootToTip.timetree.log.2', header=T, sep='\t')
+#temp <- read.table('~/git/kamphir/projects/hivepi/data/SIRTree.n300.RLRootToTip.timetree.log.6', header=T, sep='\t')
+#n300 <- rbind(n300[100:nrow(n300),], temp[100:nrow(temp),])
+
+n300 <- read.table('~/git/kamphir/projects/hivepi/data/SIRTree.n300.RLRootToTip.timetree.gauss.log.7', header=T, sep='\t')
+
+# tau = 2.0
+n1000 <- read.table('~/git/kamphir/projects/hivepi/data/SIRTree.n1000.RLRootToTip.timetree.gauss.log.1', header=T, sep='\t')
+temp <- read.table('~/git/kamphir/projects/hivepi/data/SIRTree.n1000.RLRootToTip.timetree.gauss.1.restart.log.1', header=T, sep='\t')
+n1000 <- rbind(n1000[10:nrow(n1000),], temp)
 
 n100 <- n100[complete.cases(n100),]
 n300 <- n300[complete.cases(n300),]
@@ -167,4 +179,26 @@ text(x=6.5, y=2.1, label='C', cex=3)
 
 # generate table contents
 df <- cbind(median(n100$N))
+
+
+# examine accumulation of effective sample size 
+temp <- read.table('~/git/kamphir/projects/hivepi/data/SIRTree.n100.RLRootToTip.timetree.log.7', header=T, sep='\t')
+x <- seq(100, nrow(temp), 100)
+y <- sapply(x, function(i) effectiveSize(temp$score[1:i]))
+lm(y~x)
+
+n300 <- read.table('~/git/kamphir/projects/hivepi/data/SIRTree.n300.RLRootToTip.timetree.log.2', header=T, sep='\t')
+x <- seq(100, nrow(n300), 100)
+y <- sapply(x, function(i) effectiveSize(n300$score[1:i]))
+
+n1000 <- read.table('~/git/kamphir/projects/hivepi/data/SIRTree.n1000.RLRootToTip.timetree.log', header=T, sep='\t')
+temp <- read.table('~/git/kamphir/projects/hivepi/data/SIRTree.n1000.RLRootToTip.timetree.log.7', header=T, sep='\t')
+n1000 <- rbind(n1000[100:nrow(n1000),], temp[100:nrow(temp),])
+
+
+# 10000 steps per row
+b100 <- read.table('~/git/kamphir/projects/hivepi/beast/SIRTree.n100.log', header=T, sep='\t')
+x <- seq(100, nrow(b100), 100)
+y <- sapply(x, function(i) effectiveSize(b100$posterior[1:i]))
+
 
