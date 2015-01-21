@@ -13,7 +13,7 @@ require(ape, quietly=TRUE)
 tree <- read.tree(input.nwk)
 
 # assumes that tip date is last underscore-delimited field
-temp <- sapply(tree$tip.label, function(x) strsplit(x, split='\\.')[[1]][[3]])
+temp <- sapply(tree$tip.label, function(x) strsplit(x, split='_')[[1]][[3]])
 
 #tip.dates <- as.double(temp[nrow(temp),])
 tip.dates <- (as.double(temp)-1970) * 52.1775

@@ -19,9 +19,9 @@
     },
     "beta": {
         "weight": 2.0,
-        "min": 0.00003,
+        "min": 0.0001,
         "max": 0.01,
-        "initial": 0.0005,
+        "initial": 0.001,
         "prior": "lognorm(0.5)",
         "sigma": 0.0003,
         "log": "false"
