@@ -9,16 +9,18 @@ from Bio import Phylo
 from random import sample
 import subprocess
 import time
+from datetime import datetime
 
 # TODO: allow user to set time limit and step for MASTER
 
 time_limit = 60  # seconds - when do we reduce the number of tips
 time_step = 10 # seconds - how often we check the file for completion
 
-
-#jarfile = '/Users/art/src/MASTER-2.0.0/dist/MASTER-2.0.0/MASTER-2.0.0.jar'
+# absolute path to MASTER-2.0 jarfile
+jarfile = '/Users/art/src/MASTER-2.0.0/dist/MASTER-2.0.0/MASTER-2.0.0.jar'
 #jarfile = '/Users/art/src/MASTER-2.0.0/MASTER-2.0.0.jar'
-jarfile = '/home/art/src/MASTER-2.0.0/MASTER-2.0.0.jar'
+#jarfile = '/home/art/src/MASTER-2.0.0/MASTER-2.0.0.jar'
+
 FNULL = open(os.devnull, 'w')
 
 try:

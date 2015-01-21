@@ -2,7 +2,6 @@
 Estimate epidemic model parameters by comparing simulations to "observed" phylogeny.
 """
 import os
-from pylab import *
 
 from phyloK2 import *
 import random
@@ -12,6 +11,8 @@ import time
 from cStringIO import StringIO
 import json
 import subprocess
+import math
+
 FNULL = open(os.devnull, 'w')
 
 # see http://stackoverflow.com/questions/8804830/python-multiprocessing-pickling-error/24673524#24673524
@@ -410,9 +411,9 @@ class Kamphir (PhyloKernel):
                 sys.exit()
             
             # adjust tolerance, simulated annealing
-            tol = (tol0 - mintol) * exp(-1. * decay * step) + mintol
+            tol = (tol0 - mintol) * math.exp(-1. * decay * step) + mintol
             
-            ratio = exp(-2.*(1.-next_score)/tol) / exp(-2.*(1.-cur_score)/tol)
+            ratio = math.exp(-2.*(1.-next_score)/tol) / math.exp(-2.*(1.-cur_score)/tol)
             accept_prob = min(1., ratio)
             #step_down_prob = exp(-200.*(cur_score - next_score))
             #if next_score > cur_score or random.random() < step_down_prob:
@@ -471,9 +472,9 @@ if __name__ == '__main__':
     parser.add_argument('-datefield', default=-1,
                         help='Index (from 0) of field in tip label containing date.')
     # annealing settings
-    parser.add_argument('-tol0', type=float, default=0.01,
+    parser.add_argument('-tol0', type=float, default=0.02,
                         help='Initial tolerance for simulated annealing.')
-    parser.add_argument('-mintol', type=float, default=0.005,
+    parser.add_argument('-mintol', type=float, default=0.01,
                         help='Minimum tolerance for simulated annealing.')
     parser.add_argument('-toldecay', type=float, default=0.0025,
                         help='Simulated annealing decay rate.')
@@ -489,7 +490,7 @@ if __name__ == '__main__':
     parser.add_argument('-kdecay', default=0.35, type=float,
                         help='Decay factor for tree shape kernel. Lower values penalize large subset '
                              'trees more severely.')
-    parser.add_argument('-tau', default=0.5, type=float,
+    parser.add_argument('-tau', default=2.0, type=float,
                         help='Precision for Gaussian radial basis function penalizing branch length '
                              'discordance. Lower values penalize more severely.  CAVEAT: if normalize '
                              'is set to "none" then make sure this parameter is scaled to the '
