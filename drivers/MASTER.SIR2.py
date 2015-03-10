@@ -50,51 +50,72 @@ template = jenv.from_string(source=
 """
 <beast version='2.0' namespace='master
                                 :master.model
+                                :master.steppers
                                 :master.conditions
                                 :master.outputs
                                 :master.postprocessors'>
     <run spec='InheritanceEnsemble'
          nTraj='{{ nreps|int }}'
-         samplePopulationSizes="true"
          verbosity="0"
+         samplePopulationSizes="true"
          simulationTime="{{ t_end }}">
 
         <model spec='Model' id='model'>
-            <population spec='Population' id='S' populationName='S' dim="2"/>
-            <population spec='Population' id='I' populationName='I' dim="2"/>
+            <populationType spec='PopulationType' id='S' typeName='S' dim="2"/>
+            <populationType spec='PopulationType' id='I' typeName='I' dim="2"/>
             <population spec='Population' id='R' populationName='R'/>
-            <population spec='Population' id='I_sample' populationName='I_sample' dim="2"/>
-
-            <reaction spec='Reaction' reactionName="Infection" rate="{{ beta }}">
-                S[0] + I[0] -> 2I[0]
-            </reaction>
-            <reaction spec='Reaction' reactionName="Infection" rate="{{ beta }}">
-                S[0] + I[1] -> I[0] + I[1]
-            </reaction>
-            <reaction spec='Reaction' reactionName="Infection" rate="{{ beta }}">
-                S[1] + I[0] -> I[0] + I[1]
-            </reaction>
-            <reaction spec='Reaction' reactionName="Infection" rate="{{ beta }}">
-                S[1] + I[1] -> 2I[1]
-            </reaction>
+            <population spec='Population' id='I_sample' populationName='I_sample'/>
             
-            <reaction spec='Reaction' reactionName="Recovery" rate="{{ gamma }}">
-                I -> R
-            </reaction>
-            <reaction spec='Reaction' reactionName="Sampling" rate="{{ phi }}">
-                I -> I_sample
-            </reaction>
+            <reactionGroup spec='ReactionGroup' reactionGroupName="Infection">
+                <reaction spec='Reaction' rate="{{ beta*c0*rho }}">
+                    S[0] + I[0] -> 2I[0]
+                </reaction>
+                <reaction spec='Reaction' rate="{{ beta*c0*(1-rho) }}">
+                    S[0] + I[1] -> I[0] + I[1]
+                </reaction>
+                <reaction spec='Reaction' rate="{{ beta*c1*(1-rho) }}">
+                    S[1] + I[0] -> I[1] + I[0]
+                </reaction>
+                <reaction spec='Reaction' rate="{{ beta*c1*rho }}">
+                    S[1] + I[1] -> 2I[1]
+                </reaction>
+            </reactionGroup>
+            
+            <reactionGroup spec='ReactionGroup' reactionGroupName="Recovery">
+                <reaction spec='Reaction' rate="{{ gamma }}">
+                    I[0] -> R
+                </reaction>
+                <reaction spec='Reaction' rate="{{ gamma }}">
+                    I[1] -> R
+                </reaction>
+            </reactionGroup>
+            
+            <reactionGroup spec='ReactionGroup' reactionGroupName="Sampling">
+                <reaction spec='Reaction' rate="{{ phi }}">
+                    I[0] -> I_sample
+                </reaction>
+                <reaction spec='Reaction' rate="{{ phi }}">
+                    I[1] -> I_sample
+                </reaction>
+            </reactionGroup>
         </model>
 
         <initialState spec='InitState'>
-            <populationSize spec='PopulationSize' population='@S' size='{{ N - 1 }}'/>
-            <lineageSeed spec='Individual' population='@I'/>
+            <populationSize spec='PopulationSize' size='{{ p*N-1 }}'>
+                <population spec='Population' type='@S' location="0"/>
+            </populationSize>
+            <populationSize spec='PopulationSize' size='{{ (1-p)*N }}'>
+                <population spec='Population' type='@S' location="1"/>
+            </populationSize>
+            <lineageSeed spec='Individual'>
+                <population spec="Population" type="@I" location="0"/>
+            </lineageSeed>
         </initialState>
 
         <inheritancePostProcessor spec="LineageFilter" reactionName="Sampling"/>
-        <postSimCondition spec="LeafCountPostSimCondition" nLeaves="{{ ntips }}" exact="false"/>
+        <postSimCondition spec='LeafCountPostSimCondition' nLeaves="{{ ntips }}" exact="false"/>
 
-        <output spec='NewickOutput' fileName='{{ outfile }}'/>
+        <output spec='NewickOutput' fileName='{{ outfile }}' collapseSingleChildNodes="true"/>
     </run>
 </beast>
 """)
@@ -102,12 +123,16 @@ template = jenv.from_string(source=
 # default parameter values
 context = {
     'beta': 0.001,  # transmission rate
-    'gamma': 0.3,  # mortality rate
+    'c0': 1.0,      # contact rate, group 1
+    'c1': 1.0,      # contact rate, group 2
+    'p': 0.5,       # proportion of population in group 1
+    'rho': 0.9,     # mixing parameter (proportion of contacts within group)
+    'gamma': 0.3,   # mortality rate
+    'phi': 0.15,    # sampling rate
     'N': 1000,      # total population size
     't_end': 30,    # length of simulation
-    'phi': 0.15,    # sampling rate
-    'ntips': 100,    # number of tips in tree
-    'nreps': 10,     # number of trees to generate
+    'ntips': 100,   # number of tips in tree
+    'nreps': 10,    # number of trees to generate
     'outfile': outfile
 }
 

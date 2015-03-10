@@ -76,7 +76,7 @@ class Kamphir (PhyloKernel):
         self.nthreads = nthreads  # number of processes for PhyloKernel
         self.gibbs = gibbs
 
-    def set_target_tree(self, path, delimiter=None, position=None):
+    def set_target_tree(self, path, delimiter=None, position=None, treenum=0):
         """
         Assign a Bio.Phylo Tree object to fit a model to.
         Parse tip dates from tree string in BEAST style.
@@ -91,7 +91,12 @@ class Kamphir (PhyloKernel):
 
         self.path_to_tree = path
         print 'reading in target tree from', path
-        self.target_tree = Phylo.read(path, 'newick')
+        try:
+            self.target_tree = Phylo.read(path, 'newick')
+        except:
+            trees = list(Phylo.parse(path, 'newick'))
+            print 'parsed', len(trees), 'trees from file'
+            self.target_tree = trees[treenum]
 
         tips = self.target_tree.get_terminals()
         self.ntips = len(tips)
@@ -155,13 +160,17 @@ class Kamphir (PhyloKernel):
             proposal_value = None
             current_value = self.proposed[to_modify]
             sigma = self.settings[to_modify]['sigma'] * tuning
-            while True:
-                proposal_value = current_value + random.normalvariate(0, sigma)
-                if self.settings[to_modify].has_key('min') and proposal_value < self.settings[to_modify]['min']:
-                    continue
-                if self.settings[to_modify].has_key('max') and proposal_value > self.settings[to_modify]['max']:
-                    continue
-                break
+            proposal_value = current_value + random.normalvariate(0, sigma)
+            
+            # reflected proposal distribution
+            if self.settings[to_modify].has_key('min') and proposal_value < self.settings[to_modify]['min']:
+                delta = self.settings[to_modify]['min'] - proposal_value
+                proposal_value = self.settings[to_modify]['min'] + delta
+                
+            if self.settings[to_modify].has_key('max') and proposal_value > self.settings[to_modify]['max']:
+                delta = proposal_value - self.settings[to_modify]['max']
+                proposal_value = self.settings[to_modify]['max'] - delta
+            
             self.proposed[to_modify] = proposal_value
         else:
             # full-dimensional update
@@ -471,6 +480,8 @@ if __name__ == '__main__':
                         help='Delimiter used in tip label to separate fields.')
     parser.add_argument('-datefield', default=-1,
                         help='Index (from 0) of field in tip label containing date.')
+    parser.add_argument('-treenum', type=int, default=0, help='Number of tree in file to process.')
+    
     # annealing settings
     parser.add_argument('-tol0', type=float, default=0.02,
                         help='Initial tolerance for simulated annealing.')
@@ -487,7 +498,7 @@ if __name__ == '__main__':
                              'Metropolis is the default.')
 
     # kernel settings
-    parser.add_argument('-kdecay', default=0.35, type=float,
+    parser.add_argument('-kdecay', default=0.2, type=float,
                         help='Decay factor for tree shape kernel. Lower values penalize large subset '
                              'trees more severely.')
     parser.add_argument('-tau', default=2.0, type=float,
@@ -545,7 +556,8 @@ if __name__ == '__main__':
                       gibbs=args.gibbs,
                       nreps=args.nreps)
 
-        kam.set_target_tree(args.nwkfile, delimiter=args.delimiter, position=args.datefield)
+        kam.set_target_tree(args.nwkfile, delimiter=args.delimiter, position=args.datefield, 
+                            treenum=args.treenum)
 
         # prevent previous log files from being overwritten
         modifier = ''
