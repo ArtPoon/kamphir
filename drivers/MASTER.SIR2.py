@@ -16,10 +16,11 @@ from datetime import datetime
 time_limit = 60  # seconds - when do we reduce the number of tips
 time_step = 10 # seconds - how often we check the file for completion
 
-
-#jarfile = '/Users/art/src/MASTER-2.0.0/dist/MASTER-2.0.0/MASTER-2.0.0.jar'
+# absolute path to MASTER-2.0 jarfile
+jarfile = '/Users/art/src/MASTER-2.0.0/dist/MASTER-2.0.0/MASTER-2.0.0.jar'
 #jarfile = '/Users/art/src/MASTER-2.0.0/MASTER-2.0.0.jar'
-jarfile = '/home/art/src/MASTER-2.0.0/MASTER-2.0.0.jar'
+#jarfile = '/home/art/src/MASTER-2.0.0/MASTER-2.0.0.jar'
+
 FNULL = open(os.devnull, 'w')
 
 try:
@@ -31,8 +32,11 @@ except:
     sys.exit(1)
 
 # get parent process ID from filename
-pid = int(infile.split('.')[0].split('_')[-1])
-tmpfile = '/tmp/MASTER.SIR.%d.xml' % pid
+try:
+    pid = int(infile.split('.')[0].split('_')[-1])
+    tmpfile = '/tmp/MASTER.SIR.%d.xml' % pid
+except:
+    tmpfile = '/tmp/MASTER.SIR.xml'
 
 jenv = jinja2.Environment(
     block_start_string='{%',
@@ -46,41 +50,72 @@ template = jenv.from_string(source=
 """
 <beast version='2.0' namespace='master
                                 :master.model
+                                :master.steppers
                                 :master.conditions
                                 :master.outputs
                                 :master.postprocessors'>
     <run spec='InheritanceEnsemble'
          nTraj='{{ nreps|int }}'
-         samplePopulationSizes="true"
          verbosity="0"
+         samplePopulationSizes="true"
          simulationTime="{{ t_end }}">
 
         <model spec='Model' id='model'>
-            <population spec='Population' id='S' populationName='S'/>
-            <population spec='Population' id='I' populationName='I'/>
+            <populationType spec='PopulationType' id='S' typeName='S' dim="2"/>
+            <populationType spec='PopulationType' id='I' typeName='I' dim="2"/>
             <population spec='Population' id='R' populationName='R'/>
             <population spec='Population' id='I_sample' populationName='I_sample'/>
-
-            <reaction spec='Reaction' reactionName="Infection" rate="{{ beta }}">
-                S + I -> 2I
-            </reaction>
-            <reaction spec='Reaction' reactionName="Recovery" rate="{{ gamma }}">
-                I -> R
-            </reaction>
-            <reaction spec='Reaction' reactionName="Sampling" rate="{{ phi }}">
-                I -> I_sample
-            </reaction>
+            
+            <reactionGroup spec='ReactionGroup' reactionGroupName="Infection">
+                <reaction spec='Reaction' rate="{{ beta*c0*rho }}">
+                    S[0] + I[0] -> 2I[0]
+                </reaction>
+                <reaction spec='Reaction' rate="{{ beta*c0*(1-rho) }}">
+                    S[0] + I[1] -> I[0] + I[1]
+                </reaction>
+                <reaction spec='Reaction' rate="{{ beta*c1*(1-rho) }}">
+                    S[1] + I[0] -> I[1] + I[0]
+                </reaction>
+                <reaction spec='Reaction' rate="{{ beta*c1*rho }}">
+                    S[1] + I[1] -> 2I[1]
+                </reaction>
+            </reactionGroup>
+            
+            <reactionGroup spec='ReactionGroup' reactionGroupName="Recovery">
+                <reaction spec='Reaction' rate="{{ gamma }}">
+                    I[0] -> R
+                </reaction>
+                <reaction spec='Reaction' rate="{{ gamma }}">
+                    I[1] -> R
+                </reaction>
+            </reactionGroup>
+            
+            <reactionGroup spec='ReactionGroup' reactionGroupName="Sampling">
+                <reaction spec='Reaction' rate="{{ phi }}">
+                    I[0] -> I_sample
+                </reaction>
+                <reaction spec='Reaction' rate="{{ phi }}">
+                    I[1] -> I_sample
+                </reaction>
+            </reactionGroup>
         </model>
 
         <initialState spec='InitState'>
-            <populationSize spec='PopulationSize' population='@S' size='{{ N - 1 }}'/>
-            <lineageSeed spec='Individual' population='@I'/>
+            <populationSize spec='PopulationSize' size='{{ p*N-1 }}'>
+                <population spec='Population' type='@S' location="0"/>
+            </populationSize>
+            <populationSize spec='PopulationSize' size='{{ (1-p)*N }}'>
+                <population spec='Population' type='@S' location="1"/>
+            </populationSize>
+            <lineageSeed spec='Individual'>
+                <population spec="Population" type="@I" location="0"/>
+            </lineageSeed>
         </initialState>
 
         <inheritancePostProcessor spec="LineageFilter" reactionName="Sampling"/>
-        <postSimCondition spec="LeafCountPostSimCondition" nLeaves="{{ ntips }}" exact="false"/>
+        <postSimCondition spec='LeafCountPostSimCondition' nLeaves="{{ ntips }}" exact="false"/>
 
-        <output spec='NewickOutput' fileName='{{ outfile }}'/>
+        <output spec='NewickOutput' fileName='{{ outfile }}' collapseSingleChildNodes="true"/>
     </run>
 </beast>
 """)
@@ -88,12 +123,16 @@ template = jenv.from_string(source=
 # default parameter values
 context = {
     'beta': 0.001,  # transmission rate
-    'gamma': 0.3,  # mortality rate
+    'c0': 1.0,      # contact rate, group 1
+    'c1': 1.0,      # contact rate, group 2
+    'p': 0.5,       # proportion of population in group 1
+    'rho': 0.9,     # mixing parameter (proportion of contacts within group)
+    'gamma': 0.3,   # mortality rate
+    'phi': 0.15,    # sampling rate
     'N': 1000,      # total population size
     't_end': 30,    # length of simulation
-    'phi': 0.15,    # sampling rate
-    'ntips': 100,    # number of tips in tree
-    'nreps': 10,     # number of trees to generate
+    'ntips': 100,   # number of tips in tree
+    'nreps': 10,    # number of trees to generate
     'outfile': outfile
 }
 
@@ -113,7 +152,7 @@ context['ntips'] = len(handle.readlines())
 handle.close()
 
 # reduce requested number of tips for more efficient simulation
-context['ntips'] = int(round(context['ntips'] * 1.0))
+context['ntips'] = int(round(context['ntips'] * 0.5))
 
 # populate template from context
 handle = open(tmpfile, 'w')
@@ -124,11 +163,12 @@ handle.close()
 if os.path.exists(outfile):
     os.remove(outfile)
 
+# call MASTER
+
 print '[%s] calling master2' % datetime.now().isoformat()
 
-# call MASTER
 #os.system('master2 %s > /dev/null' % tmpfile)
-p = subprocess.Popen(['java', '-jar', '-Xms512m', '-Xmx2048m', jarfile, tmpfile],
+p = subprocess.Popen(['java', '-Xms512m', '-Xmx2048m', '-jar', jarfile, tmpfile],
                      stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
 # check if outfile has expected number of lines
@@ -149,7 +189,7 @@ while 1:
 
         # reduce requested number of tips by 20%
         context['ntips'] = int(round(context['ntips'] * 0.5))
-        if context['ntips'] < 50:
+        if context['ntips'] < 30:
             print 'ERROR: ntips cannot be less than 2'
             sys.exit(1)
 
@@ -158,9 +198,8 @@ while 1:
         handle.write(template.render(context))
         handle.close()
 
-        p = subprocess.Popen(['java', '-jar', '-Xms512m', '-Xmx2048m', jarfile, tmpfile],
+        p = subprocess.Popen(['java', '-Xms512m', '-Xmx2048m', '-jar', jarfile, tmpfile],
                      stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-
         elapsed = 0  # reset timer
 
 p.kill()
@@ -181,15 +220,20 @@ while True:
     try:
         tips2 = sample(tips, ntips)
     except ValueError:
-        tips2 = tips
+        # sample size exceeds population
+        trees2.append(tree)
+        continue
+
+    # dict object provides faster lookup
+    keep = dict([(tip, 0) for tip in tips2])
 
     for tip in tips:
         tip.name = str(tip.confidence)
-        if tip in tips2:
+        if tip in keep:
             continue
         _ = tree.prune(tip)
     trees2.append(tree)
 
-print '[%s] pruned trees' % datetime.now().isoformat()
+#print '[%s] pruned trees' % datetime.now().isoformat()
 
 Phylo.write(trees2, outfile, 'newick')
