@@ -9,6 +9,7 @@ from Bio import Phylo
 from random import sample
 import subprocess
 import time
+from datetime import datetime
 
 # TODO: allow user to set time limit and step for MASTER
 
@@ -112,7 +113,7 @@ context['ntips'] = len(handle.readlines())
 handle.close()
 
 # reduce requested number of tips for more efficient simulation
-context['ntips'] = int(round(context['ntips'] * 0.5))
+context['ntips'] = int(round(context['ntips'] * 1.0))
 
 # populate template from context
 handle = open(tmpfile, 'w')
@@ -123,9 +124,11 @@ handle.close()
 if os.path.exists(outfile):
     os.remove(outfile)
 
+print '[%s] calling master2' % datetime.now().isoformat()
+
 # call MASTER
 #os.system('master2 %s > /dev/null' % tmpfile)
-p = subprocess.Popen(['java', '-jar', jarfile, tmpfile],
+p = subprocess.Popen(['java', '-jar', '-Xms512m', '-Xmx2048m', jarfile, tmpfile],
                      stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
 # check if outfile has expected number of lines
@@ -145,8 +148,8 @@ while 1:
         p.kill()
 
         # reduce requested number of tips by 20%
-        context['ntips'] = int(round(context['ntips'] * 0.8))
-        if context['ntips'] < 10:
+        context['ntips'] = int(round(context['ntips'] * 0.5))
+        if context['ntips'] < 50:
             print 'ERROR: ntips cannot be less than 2'
             sys.exit(1)
 
@@ -155,7 +158,7 @@ while 1:
         handle.write(template.render(context))
         handle.close()
 
-        p = subprocess.Popen(['java', '-jar', jarfile, tmpfile],
+        p = subprocess.Popen(['java', '-jar', '-Xms512m', '-Xmx2048m', jarfile, tmpfile],
                      stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
         elapsed = 0  # reset timer
@@ -187,6 +190,6 @@ while True:
         _ = tree.prune(tip)
     trees2.append(tree)
 
-#print '[%s] pruned trees' % datetime.now().isoformat()
+print '[%s] pruned trees' % datetime.now().isoformat()
 
 Phylo.write(trees2, outfile, 'newick')
