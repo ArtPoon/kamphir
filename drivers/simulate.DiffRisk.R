@@ -23,16 +23,17 @@ integrationMethod = 'rk4'
 t0 = 0
 t_end = 30.*52  # weeks
 
-N = 1000  # total population size
+N = 3000  # total population size
+n.tips <- 300
 p = 0.5  # frequency of risk group 1
 
 # model parameters
 beta = 0.01
 gamma = 1/520.
 mu = 1/3640.
-c1 = 0.5
+c1 = 2.0
 c2 = 1.0
-rho = 0.8
+rho = 0.9
 
 
 # parse settings from control file
@@ -109,19 +110,8 @@ if (any(tip.labels$tip.height < 0)) {
 }
 
 # a vector indicating when each tip was sampled
-#sampleTimes <- rep(t.end, times=n.tips)
+#sampleTimes <- rep(t_end, times=n.tips)
 sampleTimes <- t_end - tip.labels$tip.height
-
-
-# this is a binary-valued matrix where number of columns equals demes
-#   and number of rows equals tips in tree
-#   row names should correspond to tip labels
-sampleStates <- matrix(0, nrow=n.tips, ncol=length(demes))
-colnames(sampleStates) <- demes
-for (i in 1:n.tips) {
-	sampleStates[i, tip.labels$tip.label[i]] <- 1
-}
-rownames(sampleStates) <- paste(1:n.tips, tip.labels$tip.label, sep='_')
 
 
 # numerical solution of ODE
@@ -129,7 +119,27 @@ require(rcolgem, quietly=TRUE)
 
 m <- nrow(births)
 maxSampleTime <- max(sampleTimes)
+
 tfgy <- make.fgy( t0, maxSampleTime, births, deaths, nonDemeDynamics,  x0,  migrations=migrations,  parms=parms, fgyResolution = fgyResolution, integrationMethod = integrationMethod)
+# returns list of [1] times, [2] births, [3] migrations, [4] demeSizes, 
+# and [5] ODE solution
+# NOTE items 1-4 are in reverse time
+
+
+# use prevalence of respective infected classes to determine sample states
+demes.t.end <- tfgy[[4]][[1]]
+if (sum(demes.t.end) < n.tips) {
+	stop('Number of infected individuals at t.end less than n.tips')
+}
+
+demes.sample <- sample(rep(1:length(demes), times=round(demes.t.end)), size=n.tips)
+sampleStates <- matrix(0, nrow=n.tips, ncol=length(demes))
+colnames(sampleStates) <- demes
+for (i in 1:n.tips) {
+	sampleStates[i, demes.sample[i]] <- 1
+}
+rownames(sampleStates) <- paste(1:n.tips, demes.sample, sep='_')
+
 
 # simulate trees
 trees <- simulate.binary.dated.tree.fgy( tfgy[[1]], tfgy[[2]], tfgy[[3]], tfgy[[4]], sampleTimes, sampleStates, integrationMethod = integrationMethod, n.reps=nreps, n.cores=n.cores)
