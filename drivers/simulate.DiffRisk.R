@@ -14,6 +14,11 @@ if (!file.exists(tips.csv)) {
 	stop('tip label file does not exist')
 }
 
+# erase previous Newick export
+if (file.exists(output.nwk)) {
+	file.remove(output.nwk)
+}
+
 n.cores <- 6  # for simulation in parallel
 
 ## default settings

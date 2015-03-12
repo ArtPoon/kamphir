@@ -95,7 +95,7 @@ class Kamphir (PhyloKernel):
             self.target_tree = Phylo.read(path, 'newick')
         except:
             trees = list(Phylo.parse(path, 'newick'))
-            print 'parsed', len(trees), 'trees from file'
+            print 'parsed', len(trees), 'trees from file, set target to tree', treenum
             self.target_tree = trees[treenum]
 
         tips = self.target_tree.get_terminals()
@@ -280,7 +280,12 @@ class Kamphir (PhyloKernel):
 
         # retrieve trees from output file
         trees = []
-        handle = open(self.path_to_output_nwk, 'rU')
+        try:
+            handle = open(self.path_to_output_nwk, 'rU')
+        except IOError:
+            # file does not exist, simulation failed
+            return []
+        
         for line in handle:
             try:
                 tree = Phylo.read(StringIO(line), 'newick')
