@@ -117,7 +117,7 @@ context['ntips'] = len(handle.readlines())
 handle.close()
 
 # reduce requested number of tips for more efficient simulation
-context['ntips'] = int(round(context['ntips'] * 0.5))
+context['ntips'] = int(round(context['ntips'] * 1.0))
 
 # populate template from context
 handle = open(tmpfile, 'w')
@@ -127,6 +127,8 @@ handle.close()
 # remove previous Newick output if it exists
 if os.path.exists(outfile):
     os.remove(outfile)
+
+print '[%s] calling master2' % datetime.now().isoformat()
 
 # call MASTER
 
@@ -199,6 +201,6 @@ while True:
         _ = tree.prune(tip)
     trees2.append(tree)
 
-#print '[%s] pruned trees' % datetime.now().isoformat()
+print '[%s] pruned trees' % datetime.now().isoformat()
 
 Phylo.write(trees2, outfile, 'newick')

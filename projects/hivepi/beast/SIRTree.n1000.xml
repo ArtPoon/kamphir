@@ -2181,7 +2181,7 @@ name="alignment"/>
         <parameter idref="freqParameter.s:SIRTree1"/>
     </operator>
 
-    <logger fileName="SIRTree.n1000.log" id="tracelog" logEvery="10000" model="@posterior" sanitiseHeaders="true" sort="smart">
+    <logger fileName="SIRTree.n1000.3.log" id="tracelog" logEvery="10000" model="@posterior" sanitiseHeaders="true" sort="smart">
         <log idref="posterior"/>
         <log idref="likelihood"/>
         <log idref="prior"/>
@@ -2210,7 +2210,7 @@ name="alignment"/>
         <log idref="prior"/>
     </logger>
 
-    <logger fileName="SIRTree.n1000.trees" id="treelog.t:SIRTree1" logEvery="1000" mode="tree">
+    <logger fileName="SIRTree.n1000.3.trees" id="treelog.t:SIRTree1" logEvery="1000" mode="tree">
         <log id="TreeWithMetaDataLogger.t:SIRTree1" spec="beast.evolution.tree.TreeWithMetaDataLogger" tree="@Tree.t:SIRTree1"/>
     </logger>
 

@@ -22,11 +22,13 @@ fgyResolution = 500.  # large value gives smaller time step
 integrationMethod = 'adams'
 t0 = 0
 t_end = 30.*52  # weeks
+t_break = 15.*52  # time point where transmission rate changes
 
 N = 1000  # total population size
 
 # model parameters
-beta = 0.01
+beta1 = 0.01
+beta2 = 0.005
 gamma = 1/520.
 mu = 1/3640.
 
@@ -46,7 +48,7 @@ if (any(x0 < 0)) {
 	stop('Population sizes cannot be less than 0.')
 }
 
-parms <- list(beta=beta, gamma=gamma, mu=mu)
+parms <- list(beta=beta1, gamma=gamma, mu=mu)
 if (any(parms<0)) {
 	stop ('No negative values permitted for model parameters.')
 }
@@ -102,10 +104,27 @@ maxSampleTime <- max(sampleTimes)
 
 require(rcolgem, quietly=TRUE)
 
-tfgy <- make.fgy( t0, maxSampleTime, births, deaths, nonDemeDynamics,  x0,  migrations=migrations,  parms=parms, fgyResolution = fgyResolution, integrationMethod = integrationMethod )
+#tfgy <- make.fgy( t0, maxSampleTime, births, deaths, nonDemeDynamics,  x0,  migrations=migrations,  parms=parms, fgyResolution = fgyResolution, integrationMethod = integrationMethod )
+
+
+tfgy.1 <- make.fgy( t0, t_break, births, deaths, nonDemeDynamics,  x0,  migrations=migrations,  parms=parms, fgyResolution = fgyResolution, integrationMethod = integrationMethod )
+
+x1 <- tfgy.1[[5]][fgyResolution, 2:3]
+parms$beta <- beta2
+tfgy.2 <- make.fgy( t_break, maxSampleTime, births, deaths, nonDemeDynamics,  x1,  migrations=migrations,  parms=parms, fgyResolution = fgyResolution, integrationMethod = integrationMethod )
+
+# are these the same?
+#plot(tfgy[[5]][,1], tfgy[[5]][,2], type='l', ylim=c(0,1000))
+#lines(tfgy[[5]][,1], tfgy[[5]][,3], col='red')
+#points(tfgy.1[[5]][,1], tfgy.1[[5]][,2], lty=2)
+#points(tfgy.1[[5]][,1], tfgy.1[[5]][,3], lty=2, col='red')
+#points(tfgy.2[[5]][,1], tfgy.2[[5]][,2], lty=2)
+#points(tfgy.2[[5]][,1], tfgy.2[[5]][,3], lty=2, col='red')
+
 
 #trees <- simulate.binary.dated.tree(births=births, deaths=deaths, nonDemeDynamics=nonDemeDynamics, t0=0, x0=x0, sampleTimes=sampleTimes, sampleStates=sampleStates, migrations=migrations, parms=parms, n.reps=10)
 
+# times, births, migrations, demeSizes
 trees <- simulate.binary.dated.tree.fgy( tfgy[[1]], tfgy[[2]], tfgy[[3]], tfgy[[4]], sampleTimes, sampleStates, integrationMethod = integrationMethod, n.reps=nreps)
 'multiPhylo' -> class(trees)
 
