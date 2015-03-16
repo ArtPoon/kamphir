@@ -17,12 +17,13 @@ if (!file.exists(tips.csv)) {
 n.cores <- 6  # for simulation in parallel
 
 ## default settings
+n.tips = 100
 nreps = 10
 fgyResolution = 500.  # large value gives smaller time step
 integrationMethod = 'adams'
 t0 = 0
 t_end = 30.*52  # weeks
-t_break = 15.*52  # time point where transmission rate changes
+t_break = 0.5  # relative time where transmission rate changes
 
 N = 1000  # total population size
 
@@ -107,19 +108,21 @@ require(rcolgem, quietly=TRUE)
 #tfgy <- make.fgy( t0, maxSampleTime, births, deaths, nonDemeDynamics,  x0,  migrations=migrations,  parms=parms, fgyResolution = fgyResolution, integrationMethod = integrationMethod )
 
 # adjust fgyResolution for t_break
-fgyRes.1 <- round(fgyResolution * (t_break/t_end))
+times <- seq(t0, t_end, length.out=fgyResolution)
+fgyRes.1 <- round(fgyResolution * t_break)
 fgyRes.2 <- fgyResolution - fgyRes.1
 
-tfgy.1 <- make.fgy( t0, t_break, births, deaths, nonDemeDynamics,  x0,  migrations=migrations,  parms=parms, fgyResolution = fgyRes.1, integrationMethod = integrationMethod )
 
-x1 <- tfgy.1[[5]][fgyResolution, 2:3]
+tfgy.1 <- make.fgy( t0, times[fgyRes.1], births, deaths, nonDemeDynamics,  x0,  migrations=migrations,  parms=parms, fgyResolution = fgyRes.1, integrationMethod = integrationMethod )
+
+x1 <- tfgy.1[[5]][fgyRes.1, 2:3]
 parms$beta <- beta2
-tfgy.2 <- make.fgy( t_break, maxSampleTime, births, deaths, nonDemeDynamics,  x1,  migrations=migrations,  parms=parms, fgyResolution = fgyRes.2, integrationMethod = integrationMethod )
+tfgy.2 <- make.fgy( times[fgyRes.1+1], maxSampleTime, births, deaths, nonDemeDynamics,  x1,  migrations=migrations,  parms=parms, fgyResolution = fgyRes.2, integrationMethod = integrationMethod )
 
 # are these the same?
 #plot(tfgy[[5]][,1], tfgy[[5]][,2], type='l', ylim=c(0,1000))
 #lines(tfgy[[5]][,1], tfgy[[5]][,3], col='red')
-#points(tfgy.1[[5]][,1], tfgy.1[[5]][,2], lty=2)
+#plot(tfgy.1[[5]][,1], tfgy.1[[5]][,2], lty=2, ylim=c(0, 1000), xlim=c(0, maxSampleTime))
 #points(tfgy.1[[5]][,1], tfgy.1[[5]][,3], lty=2, col='red')
 #points(tfgy.2[[5]][,1], tfgy.2[[5]][,2], lty=2)
 #points(tfgy.2[[5]][,1], tfgy.2[[5]][,3], lty=2, col='red')
@@ -127,8 +130,16 @@ tfgy.2 <- make.fgy( t_break, maxSampleTime, births, deaths, nonDemeDynamics,  x1
 
 #trees <- simulate.binary.dated.tree(births=births, deaths=deaths, nonDemeDynamics=nonDemeDynamics, t0=0, x0=x0, sampleTimes=sampleTimes, sampleStates=sampleStates, migrations=migrations, parms=parms, n.reps=10)
 
+# reconstitute entire tfgy
+y.times <- c(tfgy.2[[1]], tfgy.1[[1]])
+y.births <- c(tfgy.2[[2]], tfgy.1[[2]])
+y.migrations <- c(tfgy.2[[3]], tfgy.1[[3]])
+y.demeSizes <- c(tfgy.2[[4]], tfgy.1[[4]])
+
 # times, births, migrations, demeSizes
-trees <- simulate.binary.dated.tree.fgy( tfgy[[1]], tfgy[[2]], tfgy[[3]], tfgy[[4]], sampleTimes, sampleStates, integrationMethod = integrationMethod, n.reps=nreps)
+#trees <- simulate.binary.dated.tree.fgy( tfgy[[1]], tfgy[[2]], tfgy[[3]], tfgy[[4]], sampleTimes, sampleStates, integrationMethod = integrationMethod, n.reps=nreps)
+trees <- simulate.binary.dated.tree.fgy(y.times, y.births, y.migrations, y.demeSizes, sampleTimes, sampleStates, integrationMethod, nreps)
+
 'multiPhylo' -> class(trees)
 
 write.tree(trees, file=output.nwk, append=FALSE)

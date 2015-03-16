@@ -291,7 +291,7 @@ class Kamphir (PhyloKernel):
                 tree = Phylo.read(StringIO(line), 'newick')
             except:
                 # NewickError: Number of open/close parentheses do not match
-                print 'WARNING: Discarding mangled tree.'
+                #print 'WARNING: Discarding mangled tree.'
                 continue
 
             trees.append(tree)
@@ -349,12 +349,9 @@ class Kamphir (PhyloKernel):
         """
         if trees is None:
             trees = self.simulate()
-
-            if len(trees) < self.nreps:
-                #print 'WARNING: tree sample size reduced to', len(trees)
-                if len(trees) == 0:
-                    print 'WARNING: none of the trees managed to coalesce in simulation time - returning 0.'
-                    return 0.
+            if len(trees) == 0:
+                # failed simulation
+                return None
 
         if self.nthreads > 1:
             # output = mp.Queue()
@@ -417,10 +414,13 @@ class Kamphir (PhyloKernel):
 
         # TODO: generalize screen and file log parameters
         while step < max_steps:
-            self.proposal()  # update proposed values
-            next_score = self.evaluate()
-            if next_score > 1.0:
-                print 'ERROR: next_score (%f) greater than 1.0, dumping proposal and EXIT' % next_score
+            next_score = None
+            while next_score is None:
+                self.proposal()  # update proposed values
+                next_score = self.evaluate()  # returns None if simulations fail
+                
+            if next_score > 1.0 or next_score < 0.0:
+                print 'ERROR: next_score (', next_score, ') outside interval [0,1], dumping proposal and EXIT'
                 print self.proposal()
                 sys.exit()
             
@@ -573,6 +573,7 @@ if __name__ == '__main__':
 
         logfile = open(args.logfile+modifier, 'w')
         kam.abc_mcmc(logfile,
+                        max_steps=args.maxsteps,
                         skip=args.skip,
                         tol0=args.tol0,
                         mintol=args.mintol,
