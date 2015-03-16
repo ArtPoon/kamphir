@@ -106,12 +106,15 @@ require(rcolgem, quietly=TRUE)
 
 #tfgy <- make.fgy( t0, maxSampleTime, births, deaths, nonDemeDynamics,  x0,  migrations=migrations,  parms=parms, fgyResolution = fgyResolution, integrationMethod = integrationMethod )
 
+# adjust fgyResolution for t_break
+fgyRes.1 <- round(fgyResolution * (t_break/t_end))
+fgyRes.2 <- fgyResolution - fgyRes.1
 
-tfgy.1 <- make.fgy( t0, t_break, births, deaths, nonDemeDynamics,  x0,  migrations=migrations,  parms=parms, fgyResolution = fgyResolution, integrationMethod = integrationMethod )
+tfgy.1 <- make.fgy( t0, t_break, births, deaths, nonDemeDynamics,  x0,  migrations=migrations,  parms=parms, fgyResolution = fgyRes.1, integrationMethod = integrationMethod )
 
 x1 <- tfgy.1[[5]][fgyResolution, 2:3]
 parms$beta <- beta2
-tfgy.2 <- make.fgy( t_break, maxSampleTime, births, deaths, nonDemeDynamics,  x1,  migrations=migrations,  parms=parms, fgyResolution = fgyResolution, integrationMethod = integrationMethod )
+tfgy.2 <- make.fgy( t_break, maxSampleTime, births, deaths, nonDemeDynamics,  x1,  migrations=migrations,  parms=parms, fgyResolution = fgyRes.2, integrationMethod = integrationMethod )
 
 # are these the same?
 #plot(tfgy[[5]][,1], tfgy[[5]][,2], type='l', ylim=c(0,1000))
