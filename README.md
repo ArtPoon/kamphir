@@ -21,5 +21,5 @@ The take home message is that Kamphir enables you to fit practically any model t
  
 ##Requires at least one of:
 * [MASTER](http://compevol.github.io/MASTER/) - Java module for reaction system-based simulation of epidemiological processes in the BEAST2 package
-* [rcolgem](http://colgem.r-forge.r-project.org/) - R module for coalescent simulation and inference for epidemiological models through numerical solution of ODEs
+* [rcolgem](http://colgem.r-forge.r-project.org/) - A modified version of this R module is already incorporated into this repository.  This module performs coalescent simulation and inference for epidemiological models through numerical solution of ODEs.  Requires [R](http://cran.r-project.org/) and packages [ape](http://cran.r-project.org/web/packages/ape/index.html), [deSolve](http://cran.r-project.org/web/packages/deSolve/index.html), [bbmle](http://cran.r-project.org/web/packages/bbmle/index.html)
 
