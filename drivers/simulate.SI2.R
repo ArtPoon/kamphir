@@ -20,7 +20,7 @@ n.cores <- 6  # for simulation in parallel
 n.tips = 100
 nreps = 10
 fgyResolution = 500.  # large value gives smaller time step
-integrationMethod = 'adams'
+integrationMethod = 'rk4'
 t0 = 0
 t_end = 30.*52  # weeks
 t_break = 0.5  # relative time where transmission rate changes
