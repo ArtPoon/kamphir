@@ -39,8 +39,8 @@ class Kamphir (PhyloKernel):
         'max': maximum parameter value (optional)
     """
     
-    def __init__(self, settings, script, driver,
-                 ncores=1, nreps=10, nthreads=1, gibbs=False, simfunc=None,
+    def __init__(self, settings, script, driver, simfunc,
+                 ncores=1, nreps=10, nthreads=1, gibbs=False,
                  **kwargs):
         # call base class constructor
         PhyloKernel.__init__(self, **kwargs)
@@ -64,6 +64,8 @@ class Kamphir (PhyloKernel):
         self.path_to_output_nwk = '/tmp/output_%d.nwk' % self.pid
         self.path_to_script = script
         self.driver = driver
+
+        # rcolgem functions
         self.simfunc = simfunc
 
         self.ntips = None
@@ -111,7 +113,7 @@ class Kamphir (PhyloKernel):
 
         # parse tip heights from labels
         if delimiter is None:
-            self.tip_heights = [''] * self.ntips
+            self.tip_heights = [0.] * self.ntips
         else:
             maxdate = 0
             tipdates = []
@@ -241,7 +243,6 @@ class Kamphir (PhyloKernel):
         Convert resulting Newick tree strings into Phylo objects.
         :return: List of Phylo BaseTree objects.
         """
-        print 'simulate2'
         newicks = self.simfunc(self.proposed, self.tip_heights)
         trees = []
         for newick in newicks:
@@ -249,6 +250,7 @@ class Kamphir (PhyloKernel):
                 tree = Phylo.read(StringIO(newick), 'newick')
             except:
                 continue
+            trees.append(tree)
 
         return trees
 
@@ -468,7 +470,8 @@ if __name__ == '__main__':
                                             'can be used to generate a tree.')
 
     # first required arg is simulation Rscript
-    parser.add_argument('script', help='Script for simulating trees.')
+    parser.add_argument('script', help='Script for simulating trees.  To use rcolgem directly, call one of '
+                                       '{rcolgem.SI, rcolgem.SI2}.')
     parser.add_argument('settings',  help='JSON file containing model parameter settings.')
     parser.add_argument('-driver', default='Rscript', choices=['Rscript', 'python'],
                         help='Driver for executing script.')
@@ -555,10 +558,16 @@ if __name__ == '__main__':
         if args.script.startswith('rcolgem'):
             import rcolgem
             r = rcolgem.Rcolgem(ncores=args.ncores, nreps=args.nreps)
-            if args.script.endswith('SI'):
+            if args.script.endswith('.SI'):
                 r.init_SI_model()
                 simfunc = r.simulate_SI_trees
-
+            elif args.script.endswith('.SI2'):
+                r.init_SI_model()
+                simfunc = r.simulate_SI2_trees
+            else:
+                print 'ERROR: Unrecognized rcolgem model type', args.script
+                print 'Currently only rcolgem.SI and rcolgem.SI2 are supported.'
+                sys.exit()
 
         kam = Kamphir(settings=settings,
                       driver=args.driver,
