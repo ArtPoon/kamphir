@@ -2,15 +2,12 @@
 Estimate epidemic model parameters by comparing simulations to "observed" phylogeny.
 """
 import os
-
 from phyloK2 import *
 import random
 
 from copy import deepcopy
 import time
 from cStringIO import StringIO
-import json
-import subprocess
 import math
 
 FNULL = open(os.devnull, 'w')
@@ -43,7 +40,7 @@ class Kamphir (PhyloKernel):
     """
     
     def __init__(self, settings, script, driver,
-                 ncores=1, nreps=10, nthreads=1, gibbs=False,
+                 ncores=1, nreps=10, nthreads=1, gibbs=False, simfunc=None,
                  **kwargs):
         # call base class constructor
         PhyloKernel.__init__(self, **kwargs)
@@ -67,6 +64,7 @@ class Kamphir (PhyloKernel):
         self.path_to_output_nwk = '/tmp/output_%d.nwk' % self.pid
         self.path_to_script = script
         self.driver = driver
+        self.simfunc = simfunc
 
         self.ntips = None
         self.tip_heights = []
@@ -237,6 +235,22 @@ class Kamphir (PhyloKernel):
 
         output.put(knorm)  # MP
 
+    def simulate2(self):
+        """
+        Simulate trees using class function simfunc.
+        Convert resulting Newick tree strings into Phylo objects.
+        :return: List of Phylo BaseTree objects.
+        """
+        print 'simulate2'
+        newicks = self.simfunc(self.proposed, self.tip_heights)
+        trees = []
+        for newick in newicks:
+            try:
+                tree = Phylo.read(StringIO(newick), 'newick')
+            except:
+                continue
+
+        return trees
 
     def simulate(self, prune=True):
         """
@@ -297,23 +311,6 @@ class Kamphir (PhyloKernel):
             trees.append(tree)
         handle.close()
 
-        #print '[%s] before prune, nthreads=%d' % (datetime.datetime.now().isoformat(), self.nthreads)
-        """
-        if prune:
-            if self.nthreads > 1:
-                try:
-                    async_results = [apply_async(pool, self.prune_tree, args=(tree, )) for tree in trees]
-                except:
-                    raise
-
-                map(mp.pool.ApplyResult.wait, async_results)
-                trees = [r.get() for r in async_results]
-            else:
-                trees = [self.prune_tree(tree, self.ntips) for tree in trees]
-
-        #print '[%s] after prune' % datetime.datetime.now().isoformat()
-        """
-
         #trees = Phylo.parse(self.path_to_output_nwk, 'newick')
         return trees
 
@@ -348,7 +345,11 @@ class Kamphir (PhyloKernel):
                 [trees] simulated trees (for debugging)
         """
         if trees is None:
-            trees = self.simulate()
+            if simfunc is None:
+                trees = self.simulate()
+            else:
+                trees = self.simulate2()
+
             if len(trees) == 0:
                 # failed simulation
                 return None
@@ -550,8 +551,18 @@ if __name__ == '__main__':
         settings = json.loads(handle.read())
         handle.close()
 
+        simfunc = None
+        if args.script.startswith('rcolgem'):
+            import rcolgem
+            r = rcolgem.Rcolgem(ncores=args.ncores, nreps=args.nreps)
+            if args.script.endswith('SI'):
+                r.init_SI_model()
+                simfunc = r.simulate_SI_trees
+
+
         kam = Kamphir(settings=settings,
                       driver=args.driver,
+                      simfunc=simfunc,
                       script=args.script,
                       ncores=args.ncores,
                       nthreads=args.nthreads,
