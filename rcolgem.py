@@ -4,7 +4,7 @@ class Rcolgem ():
     def __init__ (self, ncores, nreps, t0=0, fgy_resolution=500., integration_method='rk4'):
         # load Rcolgem
         robjects.r("require(rcolgem, quietly=TRUE)")
-        
+
         # default settings
         robjects.globalenv['n.cores'] = ncores
         robjects.globalenv['nreps'] = nreps
@@ -150,8 +150,12 @@ class Rcolgem ():
         robjects.r("y.demeSizes <- c(tfgy.2[[4]], tfgy.1[[4]])")
 
         # simulate trees
-        robjects.r("trees <- simulate.binary.dated.tree.fgy(y.times, y.births, y.migrations, y.demeSizes, sampleTimes, "
-                   "sampleStates, integrationMethod, nreps)")
+        try:
+            robjects.r("trees <- simulate.binary.dated.tree.fgy(y.times, y.births, y.migrations, y.demeSizes, "
+                       "sampleTimes, sampleStates, integrationMethod, nreps)")
+        except:
+            return []
+
         robjects.r("'multiPhylo' -> class(trees)")
 
         # convert R objects into Python strings in Newick format
