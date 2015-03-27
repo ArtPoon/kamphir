@@ -414,6 +414,7 @@ class Kamphir (PhyloKernel):
         step = first_step  # in case of restarting chain
         logfile.write('\t'.join(['state', 'score'] + keys))
         logfile.write('\n')
+        logfile.flush()
 
         # TODO: generalize screen and file log parameters
         while step < max_steps:
@@ -453,6 +454,7 @@ class Kamphir (PhyloKernel):
             if step % skip == 0:
                 logfile.write('\t'.join(map(str, [step, cur_score] + [self.current[k] for k in keys])))
                 logfile.write('\n')
+                logfile.flush()
             step += 1
 
 if __name__ == '__main__':
