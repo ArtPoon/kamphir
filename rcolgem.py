@@ -75,8 +75,12 @@ class Rcolgem ():
                    "parms=parms, fgyResolution = fgyResolution, integrationMethod = integrationMethod )")
 
         # simulate trees
-        robjects.r("trees <- simulate.binary.dated.tree.fgy( tfgy[[1]], tfgy[[2]], tfgy[[3]], tfgy[[4]], sampleTimes, "
-                   "sampleStates, integrationMethod = integrationMethod, n.reps=nreps)")
+        try:
+            robjects.r("trees <- simulate.binary.dated.tree.fgy( tfgy[[1]], tfgy[[2]], tfgy[[3]], tfgy[[4]], sampleTimes, "
+                       "sampleStates, integrationMethod = integrationMethod, n.reps=nreps)")
+        except:
+            return []
+        
         robjects.r("'multiPhylo' -> class(trees)")
         retval = robjects.r("lapply(trees, write.tree)")
         trees = map(lambda x: str(x).split()[-1].strip('" '), retval)
