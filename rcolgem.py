@@ -1,3 +1,6 @@
+from rpy2.rinterface import set_readconsole
+set_readconsole(None)
+
 import rpy2.robjects as robjects  # R is instantiated upon load module
 
 class Rcolgem ():
@@ -80,7 +83,7 @@ class Rcolgem ():
                        "sampleStates, integrationMethod = integrationMethod, n.reps=nreps)")
         except:
             return []
-        
+
         robjects.r("'multiPhylo' -> class(trees)")
         retval = robjects.r("lapply(trees, write.tree)")
         trees = map(lambda x: str(x).split()[-1].strip('" '), retval)
