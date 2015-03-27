@@ -2,6 +2,9 @@ import rpy2.robjects as robjects  # R is instantiated upon load module
 
 class Rcolgem ():
     def __init__ (self, ncores, nreps, t0=0, fgy_resolution=500., integration_method='rk4'):
+        # load Rcolgem package
+        robjects.r("require(rcolgem, quietly=TRUE)")
+
         # default settings
         robjects.globalenv['n.cores'] = ncores
         robjects.globalenv['nreps'] = nreps
@@ -124,9 +127,6 @@ class Rcolgem ():
 
         robjects.r("m <- nrow(births)")
         robjects.r("maxSampleTime <- max(sampleTimes)")
-
-        # load Rcolgem package
-        robjects.r("require(rcolgem, quietly=TRUE)")
 
         # solve first ODE
         robjects.r("tfgy.1 <- make.fgy( t0, times[fgyRes.1], births, deaths, nonDemeDynamics, x0,"
