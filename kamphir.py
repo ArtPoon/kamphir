@@ -473,7 +473,7 @@ if __name__ == '__main__':
 
     # first required arg is simulation Rscript
     parser.add_argument('script', help='Script for simulating trees.  To use rcolgem directly, call one of '
-                                       '{rcolgem.SI, rcolgem.SI2}.')
+                                       '{rcolgem.SI, rcolgem.SI2, rcolgem.DiffRisk}.')
     parser.add_argument('settings',  help='JSON file containing model parameter settings.')
     parser.add_argument('-driver', default='Rscript', choices=['Rscript', 'python'],
                         help='Driver for executing script.')
@@ -566,6 +566,9 @@ if __name__ == '__main__':
             elif args.script.endswith('.SI2'):
                 r.init_SI_model()
                 simfunc = r.simulate_SI2_trees
+            elif args.script.endswith('.DiffRisk'):
+                r.init_DiffRisk_model()
+                simfunc = r.simulate_DiffRisk_trees
             else:
                 print 'ERROR: Unrecognized rcolgem model type', args.script
                 print 'Currently only rcolgem.SI and rcolgem.SI2 are supported.'
