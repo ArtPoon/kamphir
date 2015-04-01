@@ -250,7 +250,12 @@ class Rcolgem ():
 
         # # use prevalence of respective infected classes to determine sample states
         robjects.r("demes.t.end <- tfgy[[4]][[1]]")
-        robjects.r("demes.sample <- sample(rep(1:length(demes), times=round(demes.t.end)), size=n.tips)")
+        try:
+            robjects.r("demes.sample <- sample(rep(1:length(demes), times=round(demes.t.end)), size=n.tips)")
+        except:
+            # number of infected individuals less than number of tips
+            return []
+
         robjects.r("sampleStates <- matrix(0, nrow=n.tips, ncol=length(demes))")
         robjects.r("colnames(sampleStates) <- demes")
         robjects.r("for (i in 1:n.tips) { sampleStates[i, demes.sample[i]] <- 1 }")
