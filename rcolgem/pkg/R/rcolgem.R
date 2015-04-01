@@ -114,6 +114,7 @@ binaryDatedTree <- function( phylo, sampleTimes, sampleStates=NULL, sampleStates
 	if (is.null(sampleStates) & !is.null(sampleStatesAnnotations) ) sampleStates <- .infer.sample.states.from.annotation(phylo, sampleStatesAnnotations)
 	if (is.null(sampleStates) & is.null(sampleStatesAnnotations)) { sampleStates <- t(t( rep(1, length(phylo$tip.label)))) ; rownames( sampleStates) <- phylo$tip.label }
 	if (is.null(rownames(sampleStates))) stop('sampleStates matrix must have row names of tip labels')
+	if (!is.na(sampleStates)) if (!is.matrix( sampleStates)) stop('sampleStates must be a matrix (not a data.frame)')
 	
 	phylo$sampleTimes <- sampleTimes[phylo$tip.label]
 	phylo$sampleStates <- sampleStates[phylo$tip.label, ]
@@ -647,7 +648,12 @@ coalescent.log.likelihood.fgy <- function(bdt, times, births, migrations, demeSi
 # note births & migrations should be rates in each time step
 	maxtime <- times[length(times)]
 	mintime <- times[1]
-	if (mintime > (bdt$maxSampleTime - bdt$maxHeight)) {warning('Root of tree occurs before earliest time on time axis'); return(-Inf) }
+	if (!censorAtHeight & (mintime > (bdt$maxSampleTime - bdt$maxHeight))) {
+		warning('Root of tree occurs before earliest time on time axis'); return(-Inf) 
+	} 
+	if (censorAtHeight & (mintime > (bdt$maxSampleTime - censorAtHeight)) ) {
+		warning('Root of tree occurs before earliest time on time axis'); return(-Inf) 
+	}
 	fgyParms <- list()
 	fgyParms$FGY_RESOLUTION		<- length(times)
 	fgyParms$maxHeight				<- bdt$maxHeight #
@@ -1008,7 +1014,6 @@ make.fgy <- function(t0, t1, births, deaths, nonDemeDynamics,  x0,  migrations=N
 		     parse(text=migrations[k,l])
 		))
 	pdeaths <- sapply(1:m, function(k) parse(text=deaths[k]) )
-	#pndd <- ifelse(mm>0, sapply(1:mm, function(k) parse(text=nonDemeDynamics[k]) ), NA )
 	if (mm > 0) {
 		pndd <- sapply(1:mm, function(k) parse(text=nonDemeDynamics[k]) )
 	} else {
@@ -1075,7 +1080,7 @@ make.fgy <- function(t0, t1, births, deaths, nonDemeDynamics,  x0,  migrations=N
 	#print(system.time(
 		#ox <- ode(y=y0, times, func=dx, parms, method=integrationMethod)
 	#))
-	ox <- ode(y=y0, times, func=dx, parms, method=integrationMethod, verbose=FALSE)
+	ox <- ode(y=y0, times, func=dx, parms, method=integrationMethod)
 	# note does not include first value, which is t0; 2nd value corresponds to root of tree
 	Ys <- lapply( nrow(ox):(1+length(times0)), function(i) ox[i, demeNames] )
 	Fs <- lapply( nrow(ox):(1+length(times0)), function(i) .birth.matrix(ox[i,], ox[i,1])  ) # dh *
@@ -1089,7 +1094,12 @@ coalescent.log.likelihood <- function( bdt, births, deaths, nonDemeDynamics,  t0
 	if (is.vector( births)) return(coalescent.log.likelihood.unstructuredModel(
 	   bdt, births,  deaths, nonDemeDynamics,  t0, x0, parms=parms, fgyResolution = fgyResolution, integrationMethod = integrationMethod,  censorAtHeight=censorAtHeight, forgiveAgtY=forgiveAgtY) )
 	if (is.na(t0)) t0 <- bdt$maxSampleTime - bdt$maxHeight
-	if ( (bdt$maxSampleTime - bdt$maxHeight) < t0)  {warning('Root of tree occurs before earliest time on time axis'); return(-Inf) }
+	if (!censorAtHeight & (mintime > (bdt$maxSampleTime - bdt$maxHeight))) {
+		warning('Root of tree occurs before earliest time on time axis'); return(-Inf) 
+	} 
+	if (censorAtHeight & (mintime > (bdt$maxSampleTime - censorAtHeight)) ) {
+		warning('Root of tree occurs before earliest time on time axis'); return(-Inf) 
+	}
 	demeNames <- rownames(births)
 	m <- nrow(births)
 	nonDemeNames <- names(nonDemeDynamics)
@@ -1304,7 +1314,7 @@ if (s!=1) warning('Tree simulator assumes times given in equal increments')
 
 		haxis <- seq(0, maxHeight, length.out=fgyParms$FGY_RESOLUTION)
 		#AplusNotSampled <- ode( y = colSums(sortedSampleStates), times = haxis, func=dA, parms=NA, method = integrationMethod)[, 2:(m+1)]
-		odA <-  ode( y = colSums(sortedSampleStates), times = haxis, func=dA, parms=NA, method = 'adams')
+		odA <-  ode( y = colSums(sortedSampleStates), times = haxis, func=dA, parms=NA, method = integrationMethod)
 	    haxis <- odA[,1]
 	    AplusNotSampled <- odA[, 2:(m+1)]
 		AplusNotSampled <- as.matrix(AplusNotSampled, nrows=length(haxis))
@@ -1783,10 +1793,12 @@ simulate.binary.dated.tree.2 <- function(births, deaths, nonDemeDynamics,  t0, x
 
 simulate.binary.dated.tree.fgy.2 <- function( times, births, migrations, demeSizes, sampleTimes, sampleStates, integrationMethod = 'rk4')
 {
+#~ models pik on interior of tree
 #NOTE assumes times in equal increments
 #~ TODO mstates, ustates not in returned tree 
 s <- round(coef( lm(x ~ y,  data.frame(x = 1:length(times), y = sort(times))) )[1], digits=9)
 if (s!=1) warning('Tree simulator assumes times given in equal increments')
+#~  TODO validate inputs, check for NaNs
 	n <- length(sampleTimes)
 	m <- ncol(sampleStates)
 	maxSampleTime <- max(sampleTimes)
@@ -1800,7 +1812,7 @@ if (s!=1) warning('Tree simulator assumes times given in equal increments')
 	sampleHeights <- maxSampleTime - sampleTimes 
 	ix <- sort(sampleHeights, index.return=TRUE)$ix
 	sortedSampleHeights <- sampleHeights[ix]
-	sortedSampleStates <- sampleStates[ix,]
+	sortedSampleStates <- as.matrix(sampleStates[ix,])
 	uniqueSortedSampleHeights <- unique(sortedSampleHeights)
 	
 	maxtime <- max(times)
@@ -1890,7 +1902,6 @@ if (s!=1) warning('Tree simulator assumes times given in equal increments')
 	sampled.at.h <- function(h) which(sortedSampleHeights==h)
 	extantLines <- sampled.at.h(h0)
 	haxis <- seq(0, maxHeight, length.out=fgyParms$FGY_RESOLUTION)
-	#AplusNotSampled <- ode( y = colSums(sortedSampleStates), times = haxis, func=dA, parms=NA, method = integrationMethod)[, 2:(m+1)]
 	odA <- ode( y = colSums(sortedSampleStates), times = haxis, func=dA, parms=NA, method = 'adams')
 	haxis <- odA[,1]
 	AplusNotSampled <- odA[, 2:(m+1)]
