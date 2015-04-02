@@ -163,10 +163,14 @@ class Rcolgem ():
         except:
             return []
 
-        robjects.r("'multiPhylo' -> class(trees)")
-
         # convert R objects into Python strings in Newick format
-        retval = robjects.r("lapply(trees, write.tree)")
+        robjects.r("class(trees) <- 'multiPhylo'")
+        try:
+            retval = robjects.r("lapply(trees, write.tree)")
+        except:
+            # error converting trees
+            return []
+
         trees = map(lambda x: str(x).split()[-1].strip('" '), retval)
         return trees
 
@@ -248,14 +252,13 @@ class Rcolgem ():
         robjects.r("tfgy <- make.fgy( t0, maxSampleTime, births, deaths, nonDemeDynamics, x0, migrations=migrations, "
                    "parms=parms, fgyResolution = fgyResolution, integrationMethod = integrationMethod)")
 
-        # # use prevalence of respective infected classes to determine sample states
+        # use prevalence of respective infected classes at end of simulation to determine sample states
         robjects.r("demes.t.end <- tfgy[[4]][[1]]")
-        try:
-            robjects.r("demes.sample <- sample(rep(1:length(demes), times=round(demes.t.end)), size=n.tips)")
-        except:
-            # number of infected individuals less than number of tips
+        if robjects.r("sum(demes.t.end)")[0] < len(tip_heights):
+            # number of infected individuals at end of simulation is less than number of tips
             return []
 
+        robjects.r("demes.sample <- sample(rep(1:length(demes), times=round(demes.t.end)), size=n.tips)")
         robjects.r("sampleStates <- matrix(0, nrow=n.tips, ncol=length(demes))")
         robjects.r("colnames(sampleStates) <- demes")
         robjects.r("for (i in 1:n.tips) { sampleStates[i, demes.sample[i]] <- 1 }")
@@ -269,9 +272,13 @@ class Rcolgem ():
         except:
             return []
 
-        robjects.r("'multiPhylo' -> class(trees)")
-
         # convert R objects into Python strings in Newick format
-        retval = robjects.r("lapply(trees, write.tree)")
+        robjects.r("class(trees) <- 'multiPhylo'")
+        try:
+            retval = robjects.r("lapply(trees, write.tree)")
+        except:
+            # error converting trees
+            return []
+
         trees = map(lambda x: str(x).split()[-1].strip('" '), retval)
         return trees
