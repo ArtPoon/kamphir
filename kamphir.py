@@ -9,6 +9,7 @@ from copy import deepcopy
 import time
 from cStringIO import StringIO
 import math
+from scipy import stats
 
 FNULL = open(os.devnull, 'w')
 
@@ -192,14 +193,17 @@ class Kamphir (PhyloKernel):
                 self.proposed[key] = proposal_value
 
     
-    def prior (self, params):
+    def prior_ratio (self):
         """
-        Calculate the prior probability of a given parameter vector.
+        Calculate the ratio of prior probabilities for current and proposed
+        parameter values.
         """
-        res = 1.
-        for key in params.iterkeys():
-            pass
-            # work in progress
+        log_sum = 0.
+        for key in self.current.iterkeys():
+            f = eval('stats.'+self.settings[key]['prior'])
+            log_sum += f.lpdf(self.proposed[key]) - f.lpdf(self.current[key])
+
+        return math.exp(log_sum)
 
     def compute(self, tree, output=None):
         """
@@ -432,7 +436,7 @@ class Kamphir (PhyloKernel):
             tol = (tol0 - mintol) * math.exp(-1. * decay * step) + mintol
             
             ratio = math.exp(-2.*(1.-next_score)/tol) / math.exp(-2.*(1.-cur_score)/tol)
-            accept_prob = min(1., ratio)
+            accept_prob = min(1., ratio * self.prior_ratio())
             #step_down_prob = exp(-200.*(cur_score - next_score))
             #if next_score > cur_score or random.random() < step_down_prob:
             #rbf = math.exp(-(1-next_score)**2 / sigma2)  # Gaussian radial basis function

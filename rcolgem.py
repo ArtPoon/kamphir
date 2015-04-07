@@ -16,16 +16,22 @@ class Rcolgem ():
         robjects.globalenv['integrationMethod'] = integration_method
         robjects.globalenv['t0'] = t0
 
-    def init_SI_model (self, N=1000, beta=0.01, gamma=1/520., mu=1/3640.):
+    def init_SI_model (self, N=1000, beta=0.01, gamma=1/520., mu=1/3640., lambd=None):
         """
         Defines a susceptible-infected-recovered model in rcolgem.
         :param N: total population size
         :param beta: transmission rate
         :param gamma: excess mortality rate of infected individuals
         :param mu: baseline mortality rate
+        :param lambd: birth rate of population - assumes no vertical transmission!
         :return:
         """
         robjects.r('N=%f; beta=%f; gamma=%f; mu=%f' % (N, beta, gamma, mu))
+        if lambd is None:
+            robjects.r('lambd=mu')  # no net population growth
+        else:
+            robjects.r('lambd=%f' % (lambd,))
+
         robjects.r('S = N-1')
         robjects.r('I = 1')
         robjects.r('x0 <- c(I=I, S=S)')
@@ -43,7 +49,7 @@ class Rcolgem ():
         robjects.r("deaths <- c('(parms$mu+parms$gamma)*I')")
         robjects.r('names(deaths) <- demes')
 
-        robjects.r("nonDemeDynamics <- paste(sep='', '-parms$mu*S + parms$mu*S + "
+        robjects.r("nonDemeDynamics <- paste(sep='', '-parms$mu*S + parms$lambd*S + "
                    "(parms$mu+parms$gamma)*I', '-S*(parms$beta*I) / (S+I)')")
         robjects.r("names(nonDemeDynamics) <- 'S'")
 
@@ -72,7 +78,6 @@ class Rcolgem ():
 
         robjects.r("m <- nrow(births)")
         robjects.r("maxSampleTime <- max(sampleTimes)")
-
 
         # solve ODE
         robjects.r("tfgy <- make.fgy( t0, maxSampleTime, births, deaths, nonDemeDynamics, x0, migrations=migrations, "
