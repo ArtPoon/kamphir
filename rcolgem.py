@@ -35,7 +35,7 @@ class Rcolgem ():
         robjects.r('S = N-1')
         robjects.r('I = 1')
         robjects.r('x0 <- c(I=I, S=S)')
-        robjects.r('parms <- list(beta=beta, gamma=gamma, mu=mu)')
+        robjects.r('parms <- list(beta=beta, gamma=gamma, mu=mu, lambd=lambd)')
 
         # define ODE system - as strings, these will be evaluated with new parameters
         robjects.r('demes <- c("I")')
@@ -61,12 +61,12 @@ class Rcolgem ():
         :return:
         """
         # set parameters
-        robjects.r('N=%f; beta=%f; gamma=%f; mu=%f; t_end=%f' % (params['N'], params['beta'], params['gamma'],
-                                                                 params['mu'], params['t_end']))
+        robjects.r('N=%f; beta=%f; gamma=%f' % (params['N'], params['beta'], params['gamma']))
+        robjects.r('mu=%f; t_end=%f; lambd=%f' % (params['mu'], params['t_end'], params.get('lambd', params['mu'])))
         robjects.r('S = N-1')
         robjects.r('I = 1')
         robjects.r('x0 <- c(I=I, S=S)')
-        robjects.r('parms <- list(beta=beta, gamma=gamma, mu=mu)')
+        robjects.r('parms <- list(beta=beta, gamma=gamma, mu=mu, lambd=lambd)')
 
         robjects.r("n.tips <- %d" % len(tip_heights))
         robjects.r("tip.heights <- c(%s)" % ','.join(map(str, tip_heights)))
@@ -81,7 +81,7 @@ class Rcolgem ():
 
         # solve ODE
         robjects.r("tfgy <- make.fgy( t0, maxSampleTime, births, deaths, nonDemeDynamics, x0, migrations=migrations, "
-                   "parms=parms, fgyResolution = fgyResolution, integrationMethod = integrationMethod )")
+                   "parms=parms, fgyResolution = fgyResolution, integrationMethod = integrationMethod)")
 
         # simulate trees
         try:

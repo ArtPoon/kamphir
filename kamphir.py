@@ -193,17 +193,18 @@ class Kamphir (PhyloKernel):
                 self.proposed[key] = proposal_value
 
     
-    def prior_ratio (self):
+    def log_priors (self):
         """
-        Calculate the ratio of prior probabilities for current and proposed
+        Calculate the natural log-transformed prior probabilities for current and proposed
         parameter values.
         """
-        log_sum = 0.
+        retval = {'proposal': 0., 'current': 0.}
         for key in self.current.iterkeys():
             f = eval('stats.'+self.settings[key]['prior'])
-            log_sum += f.lpdf(self.proposed[key]) - f.lpdf(self.current[key])
+            retval['proposal'] += math.log(f.pdf(self.current[key]))
+            retval['current'] += math.log(f.pdf(self.proposed[key]))
 
-        return math.exp(log_sum)
+        return retval
 
     def compute(self, tree, output=None):
         """
@@ -323,6 +324,7 @@ class Kamphir (PhyloKernel):
     def prune_tree(self, tree):
         """
         Sample a random number of tips in the tree and prune the rest.
+        Only used for forward-time simulation.
         :param tree:
         :param target_size:
         :return:
@@ -413,10 +415,13 @@ class Kamphir (PhyloKernel):
         logfile.write('# kernel settings: decay=%f normalize=%s tau=%f %s\n' % (
                       self.decayFactor, self.normalize, self.gaussFactor,
                       'gibbs' if self.gibbs else ''))
-        
+
+        print 'calculating initial kernel score'
         cur_score = self.evaluate()
+        print cur_score
+
         step = first_step  # in case of restarting chain
-        logfile.write('\t'.join(['state', 'score'] + keys))
+        logfile.write('\t'.join(['state', 'score', 'prior'] + keys))
         logfile.write('\n')
         logfile.flush()
 
@@ -434,18 +439,14 @@ class Kamphir (PhyloKernel):
             
             # adjust tolerance, simulated annealing
             tol = (tol0 - mintol) * math.exp(-1. * decay * step) + mintol
-            
+            log_prior = self.log_priors()
+
             ratio = math.exp(-2.*(1.-next_score)/tol) / math.exp(-2.*(1.-cur_score)/tol)
-            accept_prob = min(1., ratio * self.prior_ratio())
-            #step_down_prob = exp(-200.*(cur_score - next_score))
-            #if next_score > cur_score or random.random() < step_down_prob:
-            #rbf = math.exp(-(1-next_score)**2 / sigma2)  # Gaussian radial basis function
+            ratio *= math.exp(log_prior['proposal'] - log_prior['current'])
+            accept_prob = min(1., ratio)
             
             # screen log
-            #print '%d\t%1.5f\t%1.5f\t%1.3f\t%1.3f\t%1.3f\t%1.5f\t%s' % (step, cur_score, next_score, 
-            #    accept_prob, self.current['c1'], self.proposed['c1'], tol, time.ctime())
-            # TODO: generalize log outputs for varying model parameters
-            to_screen = '%d\t%1.5f\t%1.5f\t' % (step, cur_score, accept_prob)
+            to_screen = '%d\t%1.5f\t%1.5f\t%1.5f\t' % (step, cur_score, log_prior['proposal'], accept_prob)
             to_screen += '\t'.join(map(lambda x: str(round(x, 5)), [self.current[k] for k in keys]))
             print to_screen
             
@@ -456,13 +457,12 @@ class Kamphir (PhyloKernel):
                 cur_score = next_score
             
             if step % skip == 0:
-                logfile.write('\t'.join(map(str, [step, cur_score] + [self.current[k] for k in keys])))
+                logfile.write('\t'.join(map(str, [step, cur_score, log_prior['proposal']] + [self.current[k] for k in keys])))
                 logfile.write('\n')
                 logfile.flush()
             step += 1
 
 if __name__ == '__main__':
-    import os
     import argparse
     import json
     from multiprocessing import cpu_count
