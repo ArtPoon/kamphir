@@ -45,7 +45,7 @@ kam = Kamphir(settings=settings, rscript='../simulate.DiffRisk.R', ncores=6, nth
 kam.set_target_tree('large1.nwk')
 
 t0 = time.time()
-trees = list(kam.simulate())
+trees = list(kam.simulate_external())
 print 'required', time.time() - t0, 'seconds to simulate trees'
 
 # single-process

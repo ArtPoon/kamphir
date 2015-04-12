@@ -54,7 +54,7 @@ class Rcolgem ():
         robjects.r("names(nonDemeDynamics) <- 'S'")
 
 
-    def simulate_SI_trees (self, params, tip_heights):
+    def simulate_SI_trees (self, params, tree_height, tip_heights):
         """
         Simulate coalescent trees under the SI model.
         :param tip_heights:
@@ -62,7 +62,7 @@ class Rcolgem ():
         """
         # set parameters
         robjects.r('N=%f; beta=%f; gamma=%f' % (params['N'], params['beta'], params['gamma']))
-        robjects.r('mu=%f; t_end=%f; lambd=%f' % (params['mu'], params['t_end'], params.get('lambd', params['mu'])))
+        robjects.r('mu=%f; lambd=%f' % (params['mu'], params.get('lambd', params['mu'])))
         robjects.r('S = N-1')
         robjects.r('I = 1')
         robjects.r('x0 <- c(I=I, S=S)')
@@ -70,6 +70,7 @@ class Rcolgem ():
 
         robjects.r("n.tips <- %d" % len(tip_heights))
         robjects.r("tip.heights <- c(%s)" % ','.join(map(str, tip_heights)))
+        robjects.r("t_end <- %f" % (tree_height,))
 
         robjects.r("sampleTimes <- t_end - tip.heights")
         robjects.r("sampleStates <- matrix(1, nrow=n.tips, ncol=length(demes))")
@@ -95,7 +96,7 @@ class Rcolgem ():
         trees = map(lambda x: str(x).split()[-1].strip('" '), retval)
         return trees
 
-    def simulate_SI2_trees(self, params, tip_heights):
+    def simulate_SI2_trees(self, params, tree_height, tip_heights):
         """
         Simulate coalescent trees under a two-phase SI model.
         :param params:
@@ -106,7 +107,7 @@ class Rcolgem ():
         # set parameters
         robjects.r('N=%f; beta1=%f; beta2=%f' % (params['N'], params['beta1'], params['beta2']))
         robjects.r('gamma=%f; mu=%f' % (params['gamma'], params['mu']))
-        robjects.r('t_end=%f; t_break=%f' % (params['t_end'], params['t_break']))
+        robjects.r('t_end=%f; t_break=%f' % (tree_height, params['t_break']))
 
         # adjust fgyResolution for t_break
         robjects.r("times <- seq(t0, t_end, length.out=fgyResolution)")
@@ -225,7 +226,7 @@ class Rcolgem ():
                    "'I2/(S2+I2))')))")
         robjects.r("names(nonDemeDynamics) <- c('S1', 'S2')")
 
-    def simulate_DiffRisk_trees(self, params, tip_heights):
+    def simulate_DiffRisk_trees(self, params, tree_height, tip_heights):
         """
 
         :param params:
@@ -235,7 +236,7 @@ class Rcolgem ():
         # set parameters
         robjects.r('N=%f; beta=%f; c1=%f; c2=%f' % (params['N'], params['beta'], params['c1'], params['c2']))
         robjects.r('rho=%f; p=%f; gamma=%f; mu=%f' % (params['rho'], params['p'], params['gamma'], params['mu']))
-        robjects.r('t_end=%f' % (params['t_end'],))
+        robjects.r('t_end=%f' % (tree_height,))
 
         # update model parameters
         robjects.r("S1=p*N-1; S2=(1-p)*N; I1=1; I2=0")

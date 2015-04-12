@@ -1,6 +1,7 @@
 """
 Estimate epidemic model parameters by comparing simulations to "observed" phylogeny.
 """
+import sys
 import os
 from phyloK2 import *
 import random
@@ -41,13 +42,13 @@ class Kamphir (PhyloKernel):
     """
     
     def __init__(self, settings, script, driver, simfunc,
-                 ncores=1, nreps=10, nthreads=1, gibbs=False,
+                 ncores=1, nreps=10, nthreads=1, gibbs=False, prior=False,
                  **kwargs):
         # call base class constructor
         PhyloKernel.__init__(self, **kwargs)
 
         self.settings = deepcopy(settings)
-        self.target_tree = None
+        self.target_trees = []
 
         self.current = {}
         self.proposed = {}
@@ -69,15 +70,18 @@ class Kamphir (PhyloKernel):
         # rcolgem functions
         self.simfunc = simfunc
 
-        self.ntips = None
-        self.tip_heights = []
-        self.ref_denom = None  # kernel score of target tree to itself
+        self.ntips = []
+        self.tip_heights = []  # list of lists
+        self.tree_heights = []
+        self.ref_denom = []  # kernel score of target tree to itself
+
         self.ncores = ncores  # number of processes for rcolgem simulation
         self.nreps = nreps
         self.nthreads = nthreads  # number of processes for PhyloKernel
         self.gibbs = gibbs
+        self.prior = prior
 
-    def set_target_tree(self, path, delimiter=None, position=None, treenum=0):
+    def set_target_trees(self, path, treenum, delimiter=None, position=None):
         """
         Assign a Bio.Phylo Tree object to fit a model to.
         Parse tip dates from tree string in BEAST style.
@@ -87,59 +91,54 @@ class Kamphir (PhyloKernel):
         :param position: indicates which token denotes tip date
         :return: None
         """
-        # TODO: If file contains more than one tree, then assign multiple trees.
         # TODO: Read states in from file.
 
         self.path_to_tree = path
-        print 'reading in target tree from', path
-        try:
-            self.target_tree = Phylo.read(path, 'newick')
-        except:
-            trees = list(Phylo.parse(path, 'newick'))
-            print 'parsed', len(trees), 'trees from file, set target to tree', treenum
-            self.target_tree = trees[treenum]
 
-        tips = self.target_tree.get_terminals()
-        self.ntips = len(tips)
-        print 'read in', self.ntips, 'leaves'
+        # reset lists
+        self.target_trees = []
+        self.ntips = []
+        self.tip_heights = []
+        self.tree_heights = []
+        self.ref_denom = []
 
-        # constrain duration of simulation to tree depth
-        if self.normalize != 'none':
-            self.settings['t_end']['min'] = max(self.target_tree.depths().values())
-            self.settings['t_end']['initial'] = self.settings['t_end']['min']
-            self.settings['t_end']['max'] = 1.1*self.settings['t_end']['min']
+        for tree in Phylo.parse(path, 'newick'):
+            # process tree
+            tree.ladderize()
+            self.normalize_tree(tree, self.normalize)
+            self.annotate_tree(tree)
 
-            self.current['t_end'] = self.settings['t_end']['initial']
-            self.proposed['t_end'] = self.settings['t_end']['initial']
+            self.target_trees.append(tree)
 
-        # parse tip heights from labels
-        if delimiter is None:
-            self.tip_heights = [0.] * self.ntips
-        else:
-            maxdate = 0
-            tipdates = []
-            for tip in tips:
-                try:
-                    items = tip.name.strip("'").split(delimiter)
-                    tipdate = float(items[position])
-                    if tipdate > maxdate:
-                        maxdate = tipdate
-                except:
-                    print 'Warning: Failed to parse tipdate from label', tip.name
-                    tipdate = None  # gets interpreted as 0
-                    pass
+            self.ref_denom.append(self.kernel(tree, tree))
+            self.tree_heights.append(max(tree.depths().values()))
 
-                tipdates.append(tipdate)
+            tips = tree.get_terminals()
+            ntips = len(tips)
+            self.ntips.append(ntips)
 
-            self.tip_heights = [str(maxdate-t) if t else 0 for t in tipdates]
+            # record tip heights (list of lists)
+            if delimiter is None:
+                self.tip_heights.append([0.] * ntips)
+            else:
+                maxdate = 0
+                tipdates = []
+                for tip in tips:
+                    try:
+                        items = tip.name.strip("'").split(delimiter)
+                        tipdate = float(items[position])
+                        if tipdate > maxdate:
+                            maxdate = tipdate
+                    except:
+                        print 'Warning: Failed to parse tipdate from label', tip.name
+                        tipdate = None  # gets interpreted as 0
+                        pass
 
-        # analyze target tree
-        self.target_tree.ladderize()
-        self.normalize_tree(self.target_tree, self.normalize)
-        self.annotate_tree(self.target_tree)
-        self.ref_denom = self.kernel(self.target_tree, self.target_tree)
-    
-    
+                    tipdates.append(tipdate)
+
+                self.tip_heights.append([str(maxdate-t) if t else 0 for t in tipdates])
+
+
     def proposal (self, tuning=1.0):
         """
         Generate a deep copy of parameters and modify one
@@ -242,13 +241,13 @@ class Kamphir (PhyloKernel):
 
         output.put(knorm)  # MP
 
-    def simulate2(self):
+    def simulate_internal(self, tree_height, tip_heights):
         """
         Simulate trees using class function simfunc.
         Convert resulting Newick tree strings into Phylo objects.
         :return: List of Phylo BaseTree objects.
         """
-        newicks = self.simfunc(self.proposed, self.tip_heights)
+        newicks = self.simfunc(self.proposed, tree_height, tip_heights)
         trees = []
         for newick in newicks:
             try:
@@ -259,7 +258,7 @@ class Kamphir (PhyloKernel):
 
         return trees
 
-    def simulate(self, prune=True):
+    def simulate_external(self, tree_height, tip_heights, prune=True):
         """
         Estimate the mean kernel distance between the reference tree and
         trees simulated under the given model parameters.
@@ -272,6 +271,7 @@ class Kamphir (PhyloKernel):
         handle = open(self.path_to_input_csv, 'w')
         handle.write('n.cores,%d\n' % self.ncores)  # parallel or serial execution
         handle.write('nreps,%d\n' % self.nreps)  # number of replicates
+        handle.write('t_end,%f\n' % tree_height)
         for item in self.proposed.iteritems():
             handle.write('%s,%f\n' % item)  # parameter name and value
         handle.close()
@@ -279,25 +279,17 @@ class Kamphir (PhyloKernel):
         # generate tip labels CSV file
         # TODO: take user-specified tip labels
         handle = open(self.path_to_label_csv, 'w')
-        for i in range(self.ntips):
+        for tip_height in tip_heights:
             handle.write('%d,%s\n' % (
                 1 + int(random.random() < self.proposed['p']),
                 #1 if i < (self.ntips*self.proposed['p']) else 2,
-                self.tip_heights[i]
+                tip_height
             ))
         handle.close()
 
         # external call to tree simulator script
-        """
-        p = subprocess.Popen([self.driver, self.path_to_script, self.path_to_input_csv,
-                               self.path_to_label_csv, self.path_to_output_nwk],
-                             stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
-        p.wait()
-        """
         os.system(' '.join([self.driver, self.path_to_script, self.path_to_input_csv,
                             self.path_to_label_csv, self.path_to_output_nwk]) + ' >/dev/null')
-
-        #print '[%s] read trees' % datetime.datetime.now().isoformat()
 
         # retrieve trees from output file
         trees = []
@@ -318,7 +310,6 @@ class Kamphir (PhyloKernel):
             trees.append(tree)
         handle.close()
 
-        #trees = Phylo.parse(self.path_to_output_nwk, 'newick')
         return trees
 
     def prune_tree(self, tree):
@@ -343,7 +334,7 @@ class Kamphir (PhyloKernel):
         return tree
 
 
-    def evaluate(self, trees=None):
+    def evaluate(self):
         """
         Wrapper to calculate mean kernel score for a simulated set
         of trees given proposed model parameters.
@@ -352,45 +343,40 @@ class Kamphir (PhyloKernel):
         :return [mean] mean kernel score
                 [trees] simulated trees (for debugging)
         """
-        if trees is None:
-            if simfunc is None:
-                trees = self.simulate()
+        retval = 0.
+        total_ntips = 0
+        for i in range(len(self.target_trees)):
+            tree_height = self.tree_heights[i]
+            tip_heights = self.tip_heights[i]
+            ntips = len(tip_heights)
+            total_ntips += ntips
+
+            if self.simfunc is None:
+                trees = self.simulate_external(tree_height, tip_heights)
             else:
-                trees = self.simulate2()
+                trees = self.simulate_internal(tree_height, tip_heights)
 
             if len(trees) == 0:
                 # failed simulation
                 return None
 
-        if self.nthreads > 1:
-            # output = mp.Queue()
-            #processes = [mp.Process(target=self.compute,
-            #                        args=(trees[i], output)) for i in range(self.nthreads)]
-            #map(lambda p: p.start(), processes)
-            #map(lambda p: p.join(), processes)
-            ## collect results and calculate mean
-            #res = [output.get() for p in processes]
-            try:
-                async_results = [apply_async(pool, self.compute, args=(tree,)) for tree in trees]
-            except:
-                # TODO: dump trees to file for debugging
-                raise
+            if self.nthreads > 1:
+                try:
+                    async_results = [apply_async(pool, self.compute, args=(tree,)) for tree in trees]
+                except:
+                    # TODO: dump trees to file for debugging
+                    raise
 
-            #pool.close()  # prevent any more tasks from being added - once completed, workers exit
-            map(mp.pool.ApplyResult.wait, async_results)
-            results = [r.get() for r in async_results]
+                map(mp.pool.ApplyResult.wait, async_results)
+                results = [r.get() for r in async_results]
+            else:
+                # single-threaded mode
+                results = [self.compute(tree) for tree in trees]
 
-        else:
-            # single-threaded mode
-            results = [self.compute(tree) for tree in trees]
+            # sum weighted by size of tree
+            retval += sum(results)/len(results) * ntips
 
-        try:
-            mean = sum(results)/len(results)
-        except:
-            print res
-            raise
-
-        return mean
+        return retval / total_ntips
 
 
     def abc_mcmc(self, logfile, max_steps=1e5, tol0=0.01, mintol=0.0005, decay=0.0025, skip=1, first_step=0):
@@ -442,9 +428,10 @@ class Kamphir (PhyloKernel):
             log_prior = self.log_priors()
 
             ratio = math.exp(-2.*(1.-next_score)/tol) / math.exp(-2.*(1.-cur_score)/tol)
-            ratio *= math.exp(log_prior['proposal'] - log_prior['current'])
+            if self.prior:
+                ratio *= math.exp(log_prior['proposal'] - log_prior['current'])
             accept_prob = min(1., ratio)
-            
+
             # screen log
             to_screen = '%d\t%1.5f\t%1.5f\t%1.5f\t' % (step, cur_score, log_prior['proposal'], accept_prob)
             to_screen += '\t'.join(map(lambda x: str(round(x, 5)), [self.current[k] for k in keys]))
@@ -475,27 +462,33 @@ if __name__ == '__main__':
                                      epilog='KAMPHIR uses Approximate Bayesian Computation to fit any model that '
                                             'can be used to generate a tree.')
 
-    # first required arg is simulation Rscript
-    parser.add_argument('script', help='Script for simulating trees.  To use rcolgem directly, call one of '
-                                       '{rcolgem.SI, rcolgem.SI2, rcolgem.DiffRisk}.')
+    # positional arguments (required)
+    parser.add_argument('model', help='Model to simulate trees with Rcolgem.  Use "*" to fit '
+                                      'a model using another program and driver script.',
+                        choices=['*', 'SI', 'SI2', 'DiffRisk'])
     parser.add_argument('settings',  help='JSON file containing model parameter settings.')
-    parser.add_argument('-driver', default='Rscript', choices=['Rscript', 'python'],
-                        help='Driver for executing script.')
-    parser.add_argument('-nreps', default=10, type=int, help='Number of replicate trees to simulate.')
-
-    # log settings
     parser.add_argument('nwkfile', help='File containing Newick tree string.')
     parser.add_argument('logfile', help='File to log ABC-MCMC traces.')
+
+    # non-Rcolgem methods
+    parser.add_argument('-script', default=None,
+                        help='Driver script implementing model.  See examples in /drivers folder.')
+    parser.add_argument('-driver', choices=['Rscript', 'python'],
+                        help='Driver for executing script.')
+
+    # log settings
     parser.add_argument('-skip', default=1, help='Number of steps in ABC-MCMC to skip for log.')
     parser.add_argument('-overwrite', action='store_true', help='Allow overwrite of log file.')
-    parser.add_argument('-restart', action='store_true', help='Restart chain from a log file.')
+    parser.add_argument('-restart', action='store_true', help='Restart chain from log file specified by '
+                                                              '<logfile> positional argument.')
 
     # tree input settings
     parser.add_argument('-delimiter', default=None,
                         help='Delimiter used in tip label to separate fields.')
     parser.add_argument('-datefield', default=-1,
                         help='Index (from 0) of field in tip label containing date.')
-    parser.add_argument('-treenum', type=int, default=0, help='Number of tree in file to process.')
+    parser.add_argument('-treenum', type=int, default=None,
+                        help='Index of tree in file to process.  Defaults to all.')
     
     # annealing settings
     parser.add_argument('-tol0', type=float, default=0.02,
@@ -506,11 +499,13 @@ if __name__ == '__main__':
                         help='Simulated annealing decay rate.')
 
     # MCMC settings
+    parser.add_argument('-nreps', default=10, type=int, help='Number of replicate trees to simulate.')
     parser.add_argument('-maxsteps', type=int, default=1e5,
                         help='Maximum number of steps to run chain sample.')
     parser.add_argument('-gibbs', action='store_true',
                         help='Perform component-wise update; otherwise full-dimensional '
                              'Metropolis is the default.')
+    parser.add_argument('-prior', action='store_true', help='Use prior distributions.')
 
     # kernel settings
     parser.add_argument('-kdecay', default=0.2, type=float,
@@ -537,6 +532,9 @@ if __name__ == '__main__':
 
     # start analysis
     if args.restart:
+        print '-restart is not supported yet!'
+        sys.exit()
+
         # TODO: work in progress
         logfile = open(args.logfile, 'rU')
         for line in logfile:
@@ -561,21 +559,25 @@ if __name__ == '__main__':
         handle.close()
 
         simfunc = None
-        if args.script.startswith('rcolgem'):
+        if args.model == '*':
+            if args.script is None:
+                print 'Error: Must specify a driver script.'
+                sys.exit()
+        else:
             import rcolgem
             r = rcolgem.Rcolgem(ncores=args.ncores, nreps=args.nreps)
-            if args.script.endswith('.SI'):
+            if args.model == 'SI':
                 r.init_SI_model()
                 simfunc = r.simulate_SI_trees
-            elif args.script.endswith('.SI2'):
+            elif args.model == 'SI2':
                 r.init_SI_model()
                 simfunc = r.simulate_SI2_trees
-            elif args.script.endswith('.DiffRisk'):
+            elif args.model == 'DiffRisk':
                 r.init_DiffRisk_model()
                 simfunc = r.simulate_DiffRisk_trees
             else:
-                print 'ERROR: Unrecognized rcolgem model type', args.script
-                print 'Currently only rcolgem.SI and rcolgem.SI2 are supported.'
+                print 'ERROR: Unrecognized rcolgem model type', args.model
+                print 'Currently only SI, SI2 and DiffRisk are supported..'
                 sys.exit()
 
         kam = Kamphir(settings=settings,
@@ -588,9 +590,10 @@ if __name__ == '__main__':
                       normalize=args.normalize,
                       gaussFactor=args.tau,
                       gibbs=args.gibbs,
-                      nreps=args.nreps)
+                      nreps=args.nreps,
+                      prior=args.prior)
 
-        kam.set_target_tree(args.nwkfile, delimiter=args.delimiter, position=args.datefield, 
+        kam.set_target_trees(args.nwkfile, delimiter=args.delimiter, position=args.datefield,
                             treenum=args.treenum)
 
         # prevent previous log files from being overwritten
