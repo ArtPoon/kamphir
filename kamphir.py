@@ -103,13 +103,14 @@ class Kamphir (PhyloKernel):
                 # user asked to process only one tree from this file
                 continue
 
-            # process tree
+            # record this before normalizing
+            tree_height = max(tree.depths().values())
+
             tree.ladderize()
             self.normalize_tree(tree, self.normalize)
             self.annotate_tree(tree)
 
             ref_denom = self.kernel(tree, tree)
-            tree_height = max(tree.depths().values())
 
             tips = tree.get_terminals()
             ntips = len(tips)
@@ -263,6 +264,7 @@ class Kamphir (PhyloKernel):
         Convert resulting Newick tree strings into Phylo objects.
         :return: List of Phylo BaseTree objects.
         """
+
         newicks = self.simfunc(self.proposed, tree_height, tip_heights)
         trees = []
         for newick in newicks:
@@ -424,6 +426,9 @@ class Kamphir (PhyloKernel):
 
         print 'calculating initial kernel score'
         cur_score = self.evaluate()
+        if cur_score is None:
+            print 'ERROR: failed to simulate trees under initial parameter values.'
+            sys.exit()
         print cur_score
 
         step = first_step  # in case of restarting chain

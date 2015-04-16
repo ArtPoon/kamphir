@@ -233,6 +233,7 @@ class Rcolgem ():
         :param tip_heights:
         :return:
         """
+
         # set parameters
         robjects.r('N=%f; beta=%f; c1=%f; c2=%f' % (params['N'], params['beta'], params['c1'], params['c2']))
         robjects.r('rho=%f; p=%f; gamma=%f; mu=%f' % (params['rho'], params['p'], params['gamma'], params['mu']))
@@ -260,6 +261,7 @@ class Rcolgem ():
 
         # use prevalence of respective infected classes at end of simulation to determine sample states
         robjects.r("demes.t.end <- tfgy[[4]][[1]]")
+
         if robjects.r("sum(demes.t.end)")[0] < len(tip_heights):
             # number of infected individuals at end of simulation is less than number of tips
             return []
