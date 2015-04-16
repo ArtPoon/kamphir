@@ -1,13 +1,4 @@
 {
-   "t_end": {
-       "weight": 1.0,
-       "min": 520,
-       "max": 2600,
-       "initial": 40.0,
-       "prior": "uniform(loc=40.0, scale=10.0)",
-       "sigma": 1.0,
-       "log": "false"
-   },
    "N": {
        "weight": 2.0,
        "min": 1000.0,

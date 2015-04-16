@@ -96,30 +96,27 @@ class Kamphir (PhyloKernel):
         self.path_to_tree = path
 
         # reset lists
-        self.target_trees = []
-        self.ntips = []
-        self.tip_heights = []
-        self.tree_heights = []
-        self.ref_denom = []
+        self.target_trees = []  # tuple (newick string, tree height, [tip heights], denom)
 
-        for tree in Phylo.parse(path, 'newick'):
+        for index, tree in enumerate(Phylo.parse(path, 'newick')):
+            if treenum is not None and index != treenum:
+                # user asked to process only one tree from this file
+                continue
+
             # process tree
             tree.ladderize()
             self.normalize_tree(tree, self.normalize)
             self.annotate_tree(tree)
 
-            self.target_trees.append(tree)
-
-            self.ref_denom.append(self.kernel(tree, tree))
-            self.tree_heights.append(max(tree.depths().values()))
+            ref_denom = self.kernel(tree, tree)
+            tree_height = max(tree.depths().values())
 
             tips = tree.get_terminals()
             ntips = len(tips)
-            self.ntips.append(ntips)
 
             # record tip heights (list of lists)
             if delimiter is None:
-                self.tip_heights.append([0.] * ntips)
+                tip_heights = [0.] * ntips
             else:
                 maxdate = 0
                 tipdates = []
@@ -136,10 +133,18 @@ class Kamphir (PhyloKernel):
 
                     tipdates.append(tipdate)
 
-                self.tip_heights.append([str(maxdate-t) if t else 0 for t in tipdates])
+                tip_heights = [str(maxdate-t) if t else 0 for t in tipdates]
+
+            self.target_trees.append((tree, tree_height, tip_heights, ref_denom))
+
+        if len(self.target_trees) == 0:
+            # we didn't read any of the trees from the file!
+            print 'ERROR: File did not contain any Newick tree strings, ' \
+                  'or -treenum (%d) exceeds number of trees!' % (treenum, )
+            sys.exit()
 
 
-    def proposal (self, tuning=1.0):
+    def proposal (self, tuning=1.0, max_attempts=1000):
         """
         Generate a deep copy of parameters and modify one
         parameter value, given constraints (if any).
@@ -176,7 +181,18 @@ class Kamphir (PhyloKernel):
             # full-dimensional update
             for key in self.current.iterkeys():
                 sigma = self.settings[key]['sigma'] * tuning
+                if sigma == 0:
+                    # no modification
+                    continue
+
+                attempts = 0
+                this_min = self.settings[key].get('min', None)
+                this_max = self.settings[key].get('max', None)
                 while True:
+                    attempts += 1
+                    if attempts > max_attempts:
+                        print 'ERROR: Failed to update proposal, check initial/min/max settings.'
+                        sys.exit()
                     if self.settings[key]['log'].upper()=='TRUE':
                         # log-normal proposal - NOTE mean and sigma are on natural log scale
                         proposal_value = random.lognormvariate(math.log(self.current[key]), sigma)
@@ -184,9 +200,9 @@ class Kamphir (PhyloKernel):
                         # Gaussian
                         proposal_value = random.normalvariate(self.current[key], sigma)
 
-                    if self.settings[key].has_key('min') and proposal_value < self.settings[key]['min']:
+                    if this_min and proposal_value < this_min:
                         continue
-                    if self.settings[key].has_key('max') and proposal_value > self.settings[key]['max']:
+                    if this_max and proposal_value > this_max:
                         continue
                     break
                 self.proposed[key] = proposal_value
@@ -205,7 +221,7 @@ class Kamphir (PhyloKernel):
 
         return retval
 
-    def compute(self, tree, output=None):
+    def compute(self, tree, target_tree, ref_denom, output=None):
         """
         Calculate kernel score.  Allow for MP execution.
         """
@@ -220,20 +236,20 @@ class Kamphir (PhyloKernel):
             raise
 
         try:
-            k = self.kernel(self.target_tree, tree)
+            k = self.kernel(target_tree, tree)
             tree_denom = self.kernel(tree, tree)
         except:
             print 'ERROR: failed to compute kernel score for tree'
             print tree
-            print self.target_tree
+            print target_tree
             raise
 
         #knorm = k / math.sqrt(self.ref_denom * tree_denom)
         try:
-            knorm = math.exp(math.log(k) - 0.5*(math.log(self.ref_denom) + math.log(tree_denom)))
+            knorm = math.exp(math.log(k) - 0.5*(math.log(ref_denom) + math.log(tree_denom)))
         except:
             print 'ERROR: failed to normalize kernel score'
-            print k, self.ref_denom, tree_denom
+            print k, ref_denom, tree_denom
             raise
 
         if output is None:
@@ -345,12 +361,13 @@ class Kamphir (PhyloKernel):
         """
         retval = 0.
         total_ntips = 0
-        for i in range(len(self.target_trees)):
-            tree_height = self.tree_heights[i]
-            tip_heights = self.tip_heights[i]
+
+        # iterate over target trees
+        for target_tree, tree_height, tip_heights, ref_denom in self.target_trees:
             ntips = len(tip_heights)
             total_ntips += ntips
 
+            # simulate trees for this target tree
             if self.simfunc is None:
                 trees = self.simulate_external(tree_height, tip_heights)
             else:
@@ -362,7 +379,10 @@ class Kamphir (PhyloKernel):
 
             if self.nthreads > 1:
                 try:
-                    async_results = [apply_async(pool, self.compute, args=(tree,)) for tree in trees]
+                    async_results = [apply_async(pool,
+                                                 self.compute,
+                                                 args=(tree, target_tree, ref_denom))
+                                     for tree in trees]
                 except:
                     # TODO: dump trees to file for debugging
                     raise
@@ -371,7 +391,7 @@ class Kamphir (PhyloKernel):
                 results = [r.get() for r in async_results]
             else:
                 # single-threaded mode
-                results = [self.compute(tree) for tree in trees]
+                results = [self.compute(tree, target_tree, ref_denom) for tree in trees]
 
             # sum weighted by size of tree
             retval += sum(results)/len(results) * ntips
@@ -563,6 +583,7 @@ if __name__ == '__main__':
             if args.script is None:
                 print 'Error: Must specify a driver script.'
                 sys.exit()
+            # simfunc remains set to None
         else:
             import rcolgem
             r = rcolgem.Rcolgem(ncores=args.ncores, nreps=args.nreps)
