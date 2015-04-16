@@ -10,11 +10,8 @@ class Rcolgem ():
         robjects.r("require(rcolgem, quietly=TRUE)")
 
         # default settings
-        robjects.globalenv['n.cores'] = ncores
-        robjects.globalenv['nreps'] = nreps
-        robjects.globalenv['fgyResolution'] = fgy_resolution
-        robjects.globalenv['integrationMethod'] = integration_method
-        robjects.globalenv['t0'] = t0
+        robjects.r('n.cores=%d; nreps=%d; fgyResolution=%d; integrationMethod=%s; t0=%f' % (
+            ncores, nreps, fgy_resolution, integration_method, t0))
 
     def init_SI_model (self, N=1000, beta=0.01, gamma=1/520., mu=1/3640., lambd=None):
         """

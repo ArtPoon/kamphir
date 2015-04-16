@@ -42,11 +42,12 @@ class Kamphir (PhyloKernel):
     """
     
     def __init__(self, settings, script, driver, simfunc,
-                 ncores=1, nreps=10, nthreads=1, gibbs=False, prior=False,
+                 ncores=1, nreps=10, nthreads=1, gibbs=False, use_priors=False,
                  **kwargs):
         # call base class constructor
         PhyloKernel.__init__(self, **kwargs)
 
+        self.use_priors = use_priors
         self.settings = deepcopy(settings)
         self.target_trees = []
 
@@ -455,7 +456,7 @@ class Kamphir (PhyloKernel):
             log_prior = self.log_priors()
 
             ratio = math.exp(-2.*(1.-next_score)/tol) / math.exp(-2.*(1.-cur_score)/tol)
-            if self.prior:
+            if self.use_priors:
                 ratio *= math.exp(log_prior['proposal'] - log_prior['current'])
             accept_prob = min(1., ratio)
 
@@ -619,7 +620,7 @@ if __name__ == '__main__':
                       gaussFactor=args.tau,
                       gibbs=args.gibbs,
                       nreps=args.nreps,
-                      prior=args.prior)
+                      use_priors=args.prior)
 
         kam.set_target_trees(args.nwkfile, delimiter=args.delimiter, position=args.datefield,
                             treenum=args.treenum)
