@@ -52,9 +52,12 @@ class Kamphir (PhyloKernel):
 
         self.current = {}
         self.proposed = {}
+        self.priors = {}
         for k, v in self.settings.iteritems():
             self.current.update({k: v['initial']})
             self.proposed.update({k: v['initial']})
+            frozen_dist = eval('stats.'+v['prior'])
+            self.priors.update({k: frozen_dist})
 
         # locations of files
         self.pid = os.getpid()  # make paths unique to this process
@@ -79,7 +82,7 @@ class Kamphir (PhyloKernel):
         self.nreps = nreps
         self.nthreads = nthreads  # number of processes for PhyloKernel
         self.gibbs = gibbs
-        self.prior = prior
+
 
     def set_target_trees(self, path, treenum, delimiter=None, position=None):
         """
@@ -216,9 +219,8 @@ class Kamphir (PhyloKernel):
         """
         retval = {'proposal': 0., 'current': 0.}
         for key in self.current.iterkeys():
-            f = eval('stats.'+self.settings[key]['prior'])
-            retval['proposal'] += math.log(f.pdf(self.current[key]))
-            retval['current'] += math.log(f.pdf(self.proposed[key]))
+            retval['proposal'] += math.log(self.priors[key].pdf(self.current[key]))
+            retval['current'] += math.log(self.priors[key].pdf(self.proposed[key]))
 
         return retval
 
@@ -415,7 +417,7 @@ class Kamphir (PhyloKernel):
         keys = self.current.keys()
         keys.sort()
 
-        logfile.write('# colgem_fitter.py log\n')
+        logfile.write('# Kamphir log\n')
         logfile.write('# start time: %s\n' % time.ctime())
         logfile.write('# input file: %s\n' % self.path_to_tree)
         logfile.write('# annealing settings: tol0=%f, mintol=%f, decay=%f\n' % (tol0, mintol, decay))
