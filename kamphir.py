@@ -219,10 +219,11 @@ class Kamphir (PhyloKernel):
         parameter values.
         """
         retval = {'proposal': 0., 'current': 0.}
+        """
         for key in self.current.iterkeys():
             retval['proposal'] += math.log(self.priors[key].pdf(self.current[key]))
             retval['current'] += math.log(self.priors[key].pdf(self.proposed[key]))
-
+        """
         return retval
 
     def compute(self, tree, target_tree, ref_denom, output=None):

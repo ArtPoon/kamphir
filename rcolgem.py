@@ -13,26 +13,11 @@ class Rcolgem ():
         robjects.r('n.cores=%d; nreps=%d; fgyResolution=%d; integrationMethod=%s; t0=%f' % (
             ncores, nreps, fgy_resolution, integration_method, t0))
 
-    def init_SI_model (self, N=1000, beta=0.01, gamma=1/520., mu=1/3640., lambd=None):
+    def init_SI_model (self):
         """
         Defines a susceptible-infected-recovered model in rcolgem.
-        :param N: total population size
-        :param beta: transmission rate
-        :param gamma: excess mortality rate of infected individuals
-        :param mu: baseline mortality rate
-        :param lambd: birth rate of population - assumes no vertical transmission!
         :return:
         """
-        robjects.r('N=%f; beta=%f; gamma=%f; mu=%f' % (N, beta, gamma, mu))
-        if lambd is None:
-            robjects.r('lambd=mu')  # no net population growth
-        else:
-            robjects.r('lambd=%f' % (lambd,))
-
-        robjects.r('S = N-1')
-        robjects.r('I = 1')
-        robjects.r('x0 <- c(I=I, S=S)')
-        robjects.r('parms <- list(beta=beta, gamma=gamma, mu=mu, lambd=lambd)')
 
         # define ODE system - as strings, these will be evaluated with new parameters
         robjects.r('demes <- c("I")')
@@ -81,15 +66,25 @@ class Rcolgem ():
         robjects.r("tfgy <- make.fgy( t0, maxSampleTime, births, deaths, nonDemeDynamics, x0, migrations=migrations, "
                    "parms=parms, fgyResolution = fgyResolution, integrationMethod = integrationMethod)")
 
+        n_inf = robjects.r("tfgy[[4]][[1]]")[0]
+        if n_inf < len(tip_heights):
+            # number of infected at end of simulation is less than number of tips
+            return []
+
         # simulate trees
         try:
-            robjects.r("trees <- simulate.binary.dated.tree.fgy( tfgy[[1]], tfgy[[2]], tfgy[[3]], tfgy[[4]], sampleTimes, "
-                       "sampleStates, integrationMethod = integrationMethod, n.reps=nreps)")
+            robjects.r("trees <- simulate.binary.dated.tree.fgy( tfgy[[1]], tfgy[[2]], tfgy[[3]], tfgy[[4]], "
+                       "sampleTimes, sampleStates, integrationMethod = integrationMethod, "
+                       "n.reps=nreps, n.cores=n.cores)")
         except:
             return []
 
         robjects.r("'multiPhylo' -> class(trees)")
-        retval = robjects.r("lapply(trees, write.tree)")
+        try:
+            retval = robjects.r("lapply(trees, write.tree)")
+        except:
+            return []
+
         trees = map(lambda x: str(x).split()[-1].strip('" '), retval)
         return trees
 
@@ -153,6 +148,11 @@ class Rcolgem ():
                    "migrations=migrations, parms=parms, fgyResolution = fgyRes.2, "
                    "integrationMethod = integrationMethod)")
 
+        n_inf = robjects.r("tfgy.2[[4]][[1]]")[0]
+        if n_inf < len(tip_heights):
+            # number of infected at end of simulation is less than number of tips
+            return []
+
         # reconstitute the entire tfgy
         robjects.r("y.times <- c(tfgy.2[[1]], tfgy.1[[1]])")
         robjects.r("y.births <- c(tfgy.2[[2]], tfgy.1[[2]])")
@@ -162,7 +162,8 @@ class Rcolgem ():
         # simulate trees
         try:
             robjects.r("trees <- simulate.binary.dated.tree.fgy(y.times, y.births, y.migrations, y.demeSizes, "
-                       "sampleTimes, sampleStates, integrationMethod, nreps)")
+                       "sampleTimes, sampleStates, integrationMethod=integrationMethod, "
+                       "n.reps=nreps, n.cores=n.cores)")
         except:
             return []
 
@@ -177,27 +178,11 @@ class Rcolgem ():
         trees = map(lambda x: str(x).split()[-1].strip('" '), retval)
         return trees
 
-    def init_DiffRisk_model(self, N=1000, beta=0.01, gamma=1/520., mu=1/3640., c1=1.0, c2=1.0, rho=0.9, p=0.5):
+    def init_DiffRisk_model(self):
         """
-        Differential risk SI model.
-        :param N:  total population size
-        :param beta:  transmission rate
-        :param gamma:  excess mortality in infected individuals
-        :param mu:  baseline mortality rate
-        :param c1:  contact rate, group 1
-        :param c2:  contact rate, group 2
-        :param rho:  mixing parameter (proportion of contacts reserved for within group)
-        :param p:  proportion of group 1 in population
-        :return:
+        Define ODE system for differential risk SI model.
         """
-        robjects.r("N=%f; beta=%f; gamma=%f; mu=%f; c1=%f; c2=%f; rho=%f; p=%f" % (N, beta, gamma, mu, c1, c2, rho, p))
 
-        # initial population frequencies
-        robjects.r("S1=p*N-1; S2=(1-p)*N; I1=1; I2=0")
-        robjects.r("x0 <- c(I1=I1, I2=I2, S1=S1, S2=S2)")
-        robjects.r("parms <- list(beta=beta, gamma=gamma, mu=mu, c1=c1, c2=c2, rho=rho)")
-
-        # define ODE system
         robjects.r("demes <- c('I1', 'I2')")
 
         robjects.r("p11 <- '(parms$rho + (1-parms$rho) * parms$c1*(S1+I1) / (parms$c1*(S1+I1) + parms$c2*(S2+I2)))'")
