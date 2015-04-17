@@ -114,7 +114,7 @@ binaryDatedTree <- function( phylo, sampleTimes, sampleStates=NULL, sampleStates
 	if (is.null(sampleStates) & !is.null(sampleStatesAnnotations) ) sampleStates <- .infer.sample.states.from.annotation(phylo, sampleStatesAnnotations)
 	if (is.null(sampleStates) & is.null(sampleStatesAnnotations)) { sampleStates <- t(t( rep(1, length(phylo$tip.label)))) ; rownames( sampleStates) <- phylo$tip.label }
 	if (is.null(rownames(sampleStates))) stop('sampleStates matrix must have row names of tip labels')
-	#if (!is.na(sampleStates)) if (!is.matrix( sampleStates)) stop('sampleStates must be a matrix (not a data.frame)')
+	if (!is.na(sampleStates)) if (!is.matrix( sampleStates)) stop('sampleStates must be a matrix (not a data.frame)')
 	
 	phylo$sampleTimes <- sampleTimes[phylo$tip.label]
 	phylo$sampleStates <- sampleStates[phylo$tip.label, ]
