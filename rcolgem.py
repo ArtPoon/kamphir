@@ -10,7 +10,7 @@ class Rcolgem ():
         robjects.r("require(rcolgem, quietly=TRUE)")
 
         # default settings
-        robjects.r('n.cores=%d; nreps=%d; fgyResolution=%d; integrationMethod=%s; t0=%f' % (
+        robjects.r('n.cores=%d; nreps=%d; fgyResolution=%d; integrationMethod="%s"; t0=%f' % (
             ncores, nreps, fgy_resolution, integration_method, t0))
 
     def init_SI_model (self):
@@ -98,7 +98,7 @@ class Rcolgem ():
 
         # set parameters
         robjects.r('N=%f; beta1=%f; beta2=%f' % (params['N'], params['beta1'], params['beta2']))
-        robjects.r('gamma=%f; mu=%f' % (params['gamma'], params['mu']))
+        robjects.r('gamma=%f; mu=%f; lambd=%f' % (params['gamma'], params['mu'], params.get('lambd', params['mu'])))
         robjects.r('t_end=%f; t_break=%f' % (tree_height, params['t_break']))
 
         # adjust fgyResolution for t_break
@@ -121,7 +121,7 @@ class Rcolgem ():
         robjects.r('S = N-1')
         robjects.r('I = 1')
         robjects.r('x0 <- c(I=I, S=S)')
-        robjects.r('parms <- list(beta=beta1, gamma=gamma, mu=mu)')
+        robjects.r('parms <- list(beta=beta1, gamma=gamma, mu=mu, lambd=lambd)')
 
         robjects.r("n.tips <- %d" % len(tip_heights))
         robjects.r("tip.heights <- c(%s)" % ','.join(map(str, tip_heights)))
@@ -135,7 +135,7 @@ class Rcolgem ():
         robjects.r("maxSampleTime <- max(sampleTimes)")
 
         # solve first ODE
-        robjects.r("tfgy.1 <- make.fgy( t0, times[fgyRes.1], births, deaths, nonDemeDynamics, x0,"
+        robjects.r("tfgy.1 <- make.fgy( t0, times[fgyRes.1], births, deaths, nonDemeDynamics, x0, "
                    "migrations=migrations, parms=parms, fgyResolution = fgyRes.1, "
                    "integrationMethod = integrationMethod )")
 
