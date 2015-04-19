@@ -205,9 +205,9 @@ class Kamphir (PhyloKernel):
                         # Gaussian
                         proposal_value = random.normalvariate(self.current[key], sigma)
 
-                    if this_min and proposal_value < this_min:
+                    if this_min is not None and proposal_value < this_min:
                         continue
-                    if this_max and proposal_value > this_max:
+                    if this_max is not None and proposal_value > this_max:
                         continue
                     break
                 self.proposed[key] = proposal_value
