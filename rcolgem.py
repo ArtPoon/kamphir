@@ -111,11 +111,11 @@ class Rcolgem ():
         if tp1 < 3:
             params2 = dict((k, v) for k, v in params.iteritems())  # deep copy
             params2.update({'beta': params['beta2']})
-            return self.simulate_SI_trees(params2, tip_heights)
+            return self.simulate_SI_trees(params2, tree_height, tip_heights)
         if tp2 < 3:
             params2 = dict((k, v) for k, v in params.iteritems())  # deep copy
             params2.update({'beta': params['beta1']})
-            return self.simulate_SI_trees(params2, tip_heights)
+            return self.simulate_SI_trees(params2, tree_height, tip_heights)
 
         # set model parameters
         robjects.r('S = N-1')
