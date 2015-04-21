@@ -3,25 +3,25 @@
         "weight": 1.0,
         "min": 0.0,
         "max": 1.0,
-        "initial": 0.1,
+        "initial": 0.5,
         "prior": "uniform(loc=0.0, scale=1.0)",
-        "sigma": 0.02,
+        "sigma": 0.05,
         "log": "false"
     },
     "N": {
         "weight": 2.0,
         "min": 1000.0,
         "max": 1000000.0,
-        "initial": 50000.0,
+        "initial": 10000.0,
         "prior": "lognorm(0.5, scale=10000)",
-        "sigma": 3000.0,
+        "sigma": 1000.0,
         "log": "false"
     },
     "beta1": {
         "weight": 2.0,
         "min": 0.01,
         "max": 10.0,
-        "initial": 1.0,
+        "initial": 0.5,
         "prior": "lognorm(1.0, scale=0.01)",
         "sigma": 0.05,
         "log": "false"
@@ -30,7 +30,7 @@
         "weight": 2.0,
         "min": 0.01,
         "max": 10.0,
-        "initial": 0.25,
+        "initial": 0.5,
         "prior": "lognorm(1.0, scale=0.01)",
         "sigma": 0.05,
         "log": "false"
@@ -47,7 +47,7 @@
     "gamma": {
         "weight": 1.0,
         "min": 0,
-        "max": 1.0,
+        "max": 5.0,
         "initial": 0.1,
         "prior": "lognorm(1.0, scale=0.1)",
         "sigma": 0.01,
@@ -56,7 +56,7 @@
     "mu": {
         "weight": 1.0,
         "min": 0.001,
-        "max": 0.1,
+        "max": 5.0,
         "initial": 0.014,
         "prior": "lognorm(1.0, scale=0.01)",
         "sigma": 0.002,
