@@ -1525,7 +1525,7 @@ if (s!=1) warning('Tree simulator assumes times given in equal increments')
 	} # end run1()
 
 	if (n.cores > 1) {
-		result <- mclapply(1:n.reps, run1)
+		result <- mclapply(1:n.reps, run1, mc.cores=n.cores)
 	} else {
 		result <- lapply(1:n.reps, run1)
 	}

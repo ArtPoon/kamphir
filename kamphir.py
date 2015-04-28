@@ -495,7 +495,8 @@ if __name__ == '__main__':
     parser.add_argument('model', help='Model to simulate trees with Rcolgem.  Use "*" to fit '
                                       'a model using another program and driver script.',
                         choices=['*', 'SI', 'SI2', 'DiffRisk'])
-    parser.add_argument('settings',  help='JSON file containing model parameter settings.')
+    parser.add_argument('settings', help='JSON file containing model parameter settings.  Ignored if'
+                                         'restarting from log file (-restart).')
     parser.add_argument('nwkfile', help='File containing Newick tree string.')
     parser.add_argument('logfile', help='File to log ABC-MCMC traces.')
 
@@ -508,8 +509,7 @@ if __name__ == '__main__':
     # log settings
     parser.add_argument('-skip', default=1, help='Number of steps in ABC-MCMC to skip for log.')
     parser.add_argument('-overwrite', action='store_true', help='Allow overwrite of log file.')
-    parser.add_argument('-restart', action='store_true', help='Restart chain from log file specified by '
-                                                              '<logfile> positional argument.')
+    parser.add_argument('-restart', default=None, help='Restart chain from log file specified.')
 
     # tree input settings
     parser.add_argument('-delimiter', default=None,
@@ -559,86 +559,118 @@ if __name__ == '__main__':
     # initialize multiprocessing thread pool at global scope
     pool = mp.Pool(processes=args.nthreads)
 
-    # start analysis
+    # recover from log file if requested
     if args.restart:
-        print '-restart is not supported yet!'
-        sys.exit()
-
-        # TODO: work in progress
-        logfile = open(args.logfile, 'rU')
+        logfile = open(args.restart, 'rU')
+        header = None
         for line in logfile:
             if line.startswith('#'):
                 if line.startswith('# MCMC settings:'):
                     settings = json.loads(line.split('settings: ')[-1])
                 if line.startswith('# annealing settings:'):
-                    tol0, mintol, decay = map(float, line.strip('\n').split('settings: ')[-1].split(', '))
+                    tol0, mintol, decay = map(float, [x.split('=')[-1]
+                                                      for x in line.strip('\n').split('settings: ')[-1].split(', ')])
                 if line.startswith('# kernel settings:'):
-                    kdecay = float(line.strip('\n').split('=')[-1])
+                    items = line.strip('\n').split('settings: ')[-1].split()
+                    for item in items:
+                        key, value = item.split('=')
+                        if key == 'decay':
+                            args.kdecay = float(value)
+                        elif key == 'normalize':
+                            args.normalize = value
+                        elif key == 'tau':
+                            args.tau = float(value)
+                        else:
+                            print 'Warning: unrecognized key', key, 'when parsing log file for restart'
+                            sys.exit()
             else:
                 if line.endswith('\n'):
                     # complete row
                     items = line.strip('\n').split()
+                    if header is None:
+                    # take the first non-commented line as header row
+                        header = items
 
         logfile.close()
 
+        # reset initial values in settings JSON
+        state = 0
+        for i, key in enumerate(header):
+            value = items[i]
+            if key in settings:
+                settings[key]['initial'] = float(value)
+            if key == 'state':
+                state = int(value)
+
+        # adjust tolerance parameters for state
+        args.mintol = mintol
+        args.tol0 = (tol0 - mintol) * math.exp(-1. * decay * state) + mintol
+        args.toldecay = decay
+
+
     else:
+        if args.settings is None:
+            print 'ERROR: settings is required if not restarting from log file'
+            sys.exit()
+
         # initialize model parameters - note variable names must match R script
         handle = open(args.settings, 'rU')
         settings = json.loads(handle.read())
         handle.close()
 
-        simfunc = None
-        if args.model == '*':
-            if args.script is None:
-                print 'Error: Must specify a driver script.'
-                sys.exit()
-            # simfunc remains set to None
+    # select model
+    simfunc = None
+    if args.model == '*':
+        if args.script is None:
+            print 'Error: Must specify (-script) if (-model) is "*".'
+            sys.exit()
+        # simfunc remains set to None
+    else:
+        import rcolgem
+        r = rcolgem.Rcolgem(ncores=args.ncores, nreps=args.nreps)
+        if args.model == 'SI':
+            r.init_SI_model()
+            simfunc = r.simulate_SI_trees
+        elif args.model == 'SI2':
+            r.init_SI_model()
+            simfunc = r.simulate_SI2_trees
+        elif args.model == 'DiffRisk':
+            r.init_DiffRisk_model()
+            simfunc = r.simulate_DiffRisk_trees
         else:
-            import rcolgem
-            r = rcolgem.Rcolgem(ncores=args.ncores, nreps=args.nreps)
-            if args.model == 'SI':
-                r.init_SI_model()
-                simfunc = r.simulate_SI_trees
-            elif args.model == 'SI2':
-                r.init_SI_model()
-                simfunc = r.simulate_SI2_trees
-            elif args.model == 'DiffRisk':
-                r.init_DiffRisk_model()
-                simfunc = r.simulate_DiffRisk_trees
-            else:
-                print 'ERROR: Unrecognized rcolgem model type', args.model
-                print 'Currently only SI, SI2 and DiffRisk are supported..'
-                sys.exit()
+            print 'ERROR: Unrecognized rcolgem model type', args.model
+            print 'Currently only SI, SI2 and DiffRisk are supported..'
+            sys.exit()
 
-        kam = Kamphir(settings=settings,
-                      driver=args.driver,
-                      simfunc=simfunc,
-                      script=args.script,
-                      ncores=args.ncores,
-                      nthreads=args.nthreads,
-                      decayFactor=args.kdecay,
-                      normalize=args.normalize,
-                      gaussFactor=args.tau,
-                      gibbs=args.gibbs,
-                      nreps=args.nreps,
-                      use_priors=args.prior)
+    kam = Kamphir(settings=settings,
+                  driver=args.driver,
+                  simfunc=simfunc,
+                  script=args.script,
+                  ncores=args.ncores,
+                  nthreads=args.nthreads,
+                  decayFactor=args.kdecay,
+                  normalize=args.normalize,
+                  gaussFactor=args.tau,
+                  gibbs=args.gibbs,
+                  nreps=args.nreps,
+                  use_priors=args.prior)
 
-        kam.set_target_trees(args.nwkfile, delimiter=args.delimiter, position=args.datefield,
-                            treenum=args.treenum)
+    kam.set_target_trees(args.nwkfile, delimiter=args.delimiter, position=args.datefield,
+                        treenum=args.treenum)
 
-        # prevent previous log files from being overwritten
-        modifier = ''
-        tries = 0
-        while os.path.exists(args.logfile+modifier) and not args.overwrite:
-            tries += 1
-            modifier = '.%d' % tries
+    # prevent previous log files from being overwritten
+    modifier = ''
+    tries = 0
+    while os.path.exists(args.logfile+modifier) and not args.overwrite:
+        tries += 1
+        modifier = '.%d' % tries
 
-        logfile = open(args.logfile+modifier, 'w')
-        kam.abc_mcmc(logfile,
-                        max_steps=args.maxsteps,
-                        skip=args.skip,
-                        tol0=args.tol0,
-                        mintol=args.mintol,
-                        decay=args.toldecay)
-        logfile.close()
+    logfile = open(args.logfile+modifier, 'w')
+    kam.abc_mcmc(logfile,
+                    max_steps=args.maxsteps,
+                    skip=args.skip,
+                    tol0=args.tol0,
+                    mintol=args.mintol,
+                    decay=args.toldecay)
+    logfile.close()
 
