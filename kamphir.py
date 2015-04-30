@@ -156,11 +156,11 @@ class Kamphir (PhyloKernel):
         :param tuning = factor to adjust sigma
         """
 
+        # make deep copy
+        for key in self.current.iterkeys():
+            self.proposed[key] = self.current[key]
+        
         if self.gibbs:
-            # make deep copy
-            for key in self.current.iterkeys():
-                self.proposed[key] = self.current[key]
-
             # which parameter to adjust in proposal (component-wise)?
             choices = []
             for parameter in self.settings.iterkeys():
@@ -204,7 +204,7 @@ class Kamphir (PhyloKernel):
                 if this_min is not None and proposal_value < this_min:
                     continue  # try again
 
-                self.proposed[to_modify] = proposal_value
+                self.proposed[key] = proposal_value
                 break
 
     
