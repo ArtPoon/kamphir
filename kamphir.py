@@ -149,12 +149,13 @@ class Kamphir (PhyloKernel):
             sys.exit()
 
 
-    def proposal (self, tuning=1.0, max_attempts=1000):
+    def proposal (self, tuning=1.0, max_attempts=100):
         """
         Generate a deep copy of parameters and modify one
         parameter value, given constraints (if any).
         :param tuning = factor to adjust sigma
         """
+
         if self.gibbs:
             # make deep copy
             for key in self.current.iterkeys():
@@ -166,51 +167,45 @@ class Kamphir (PhyloKernel):
                 choices.extend([parameter] * int(self.settings[parameter]['weight']))
             to_modify = random.sample(choices, 1)[0] # weighted sampling
             #to_modify = random.sample(self.proposed.keys(), 1)[0] # uniform sampling
-
-            proposal_value = None
-            current_value = self.proposed[to_modify]
-            sigma = self.settings[to_modify]['sigma'] * tuning
-            proposal_value = current_value + random.normalvariate(0, sigma)
-            
-            # reflected proposal distribution
-            if self.settings[to_modify].has_key('min') and proposal_value < self.settings[to_modify]['min']:
-                delta = self.settings[to_modify]['min'] - proposal_value
-                proposal_value = self.settings[to_modify]['min'] + delta
-                
-            if self.settings[to_modify].has_key('max') and proposal_value > self.settings[to_modify]['max']:
-                delta = proposal_value - self.settings[to_modify]['max']
-                proposal_value = self.settings[to_modify]['max'] - delta
-            
-            self.proposed[to_modify] = proposal_value
         else:
-            # full-dimensional update
-            for key in self.current.iterkeys():
-                sigma = self.settings[key]['sigma'] * tuning
-                if sigma == 0:
-                    # no modification
-                    continue
+            # full dimensional update
+            to_modify = self.settings.keys()
 
-                attempts = 0
-                this_min = self.settings[key].get('min', None)
-                this_max = self.settings[key].get('max', None)
-                while True:
-                    attempts += 1
-                    if attempts > max_attempts:
-                        print 'ERROR: Failed to update proposal, check initial/min/max settings.'
-                        sys.exit()
-                    if self.settings[key]['log'].upper()=='TRUE':
-                        # log-normal proposal - NOTE mean and sigma are on natural log scale
-                        proposal_value = random.lognormvariate(math.log(self.current[key]), sigma)
-                    else:
-                        # Gaussian
-                        proposal_value = random.normalvariate(self.current[key], sigma)
+        for key in to_modify:
+            sigma = self.settings[key]['sigma'] * tuning
+            if sigma == 0:
+                # no modification
+                continue
 
-                    if this_min is not None and proposal_value < this_min:
-                        continue
-                    if this_max is not None and proposal_value > this_max:
-                        continue
-                    break
-                self.proposed[key] = proposal_value
+            attempts = 0
+            this_min = self.settings[key].get('min', None)
+            this_max = self.settings[key].get('max', None)
+            while True:
+                attempts += 1
+                if attempts > max_attempts:
+                    print 'ERROR: Failed to update proposal, check initial/min/max settings.'
+                    sys.exit()
+                if self.settings[key]['log'].upper()=='TRUE':
+                    # log-normal proposal - NOTE mean and sigma are on natural log scale
+                    proposal_value = random.lognormvariate(math.log(self.current[key]), sigma)
+                else:
+                    # Gaussian
+                    proposal_value = random.normalvariate(self.current[key], sigma)
+
+                if this_min is not None and proposal_value < this_min:
+                    delta = this_min - proposal_value  # how far past the minimum are we?
+                    proposal_value = this_min + delta  # reflect this amount up from minimum
+
+                if this_max is not None and proposal_value > this_max:
+                    delta = proposal_value - this_max
+                    proposal_value = this_max - delta
+
+                # one more time to check that we are within bounds
+                if this_min is not None and proposal_value < this_min:
+                    continue  # try again
+
+                self.proposed[to_modify] = proposal_value
+                break
 
     
     def log_priors (self):
@@ -520,9 +515,9 @@ if __name__ == '__main__':
                         help='Index of tree in file to process.  Defaults to all.')
     
     # annealing settings
-    parser.add_argument('-tol0', type=float, default=0.02,
+    parser.add_argument('-tol0', type=float, default=0.01,
                         help='Initial tolerance for simulated annealing.')
-    parser.add_argument('-mintol', type=float, default=0.01,
+    parser.add_argument('-mintol', type=float, default=0.0025,
                         help='Minimum tolerance for simulated annealing.')
     parser.add_argument('-toldecay', type=float, default=0.0025,
                         help='Simulated annealing decay rate.')
@@ -563,6 +558,11 @@ if __name__ == '__main__':
     if args.restart:
         logfile = open(args.restart, 'rU')
         header = None
+        tol0 = args.tol0
+        mintol = args.mintol
+        decay = args.toldecay
+        items = []  # will hold the last
+
         for line in logfile:
             if line.startswith('#'):
                 if line.startswith('# MCMC settings:'):
