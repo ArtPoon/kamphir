@@ -494,7 +494,7 @@ if __name__ == '__main__':
     # positional arguments (required)
     parser.add_argument('model', help='Model to simulate trees with Rcolgem.  Use "*" to fit '
                                       'a model using another program and driver script.',
-                        choices=['*', 'SI', 'SI2', 'DiffRisk'])
+                        choices=['*', 'SI', 'SI2', 'DiffRisk', 'Stages'])
     parser.add_argument('settings', help='JSON file containing model parameter settings.  Ignored if'
                                          'restarting from log file (-restart).')
     parser.add_argument('nwkfile', help='File containing Newick tree string.')
@@ -637,9 +637,12 @@ if __name__ == '__main__':
         elif args.model == 'DiffRisk':
             r.init_DiffRisk_model()
             simfunc = r.simulate_DiffRisk_trees
+        elif args.model == 'Stages':
+            r.init_stages_model()
+            simfunc = r.simulate_stages_trees
         else:
             print 'ERROR: Unrecognized rcolgem model type', args.model
-            print 'Currently only SI, SI2 and DiffRisk are supported..'
+            print 'Currently only SI, SI2, DiffRisk, and Stages are supported..'
             sys.exit()
 
     kam = Kamphir(settings=settings,

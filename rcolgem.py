@@ -178,6 +178,7 @@ class Rcolgem ():
         trees = map(lambda x: str(x).split()[-1].strip('" '), retval)
         return trees
 
+
     def init_DiffRisk_model(self):
         """
         Define ODE system for differential risk SI model.
@@ -244,6 +245,98 @@ class Rcolgem ():
         # use prevalence of respective infected classes at end of simulation to determine sample states
         robjects.r("demes.t.end <- tfgy[[4]][[1]]")
 
+        if robjects.r("sum(demes.t.end)")[0] < len(tip_heights):
+            # number of infected individuals at end of simulation is less than number of tips
+            return []
+
+        robjects.r("demes.sample <- sample(rep(1:length(demes), times=round(demes.t.end)), size=n.tips)")
+        robjects.r("sampleStates <- matrix(0, nrow=n.tips, ncol=length(demes))")
+        robjects.r("colnames(sampleStates) <- demes")
+        robjects.r("for (i in 1:n.tips) { sampleStates[i, demes.sample[i]] <- 1 }")
+        robjects.r("rownames(sampleStates) <- paste(1:n.tips, demes.sample, sep='_')")
+
+        # simulate trees
+        try:
+            robjects.r("trees <- simulate.binary.dated.tree.fgy( tfgy[[1]], tfgy[[2]], tfgy[[3]], tfgy[[4]], "
+                       "sampleTimes, sampleStates, integrationMethod = integrationMethod, "
+                       "n.reps=nreps, n.cores=n.cores)")
+        except:
+            return []
+
+        # convert R objects into Python strings in Newick format
+        robjects.r("class(trees) <- 'multiPhylo'")
+        try:
+            retval = robjects.r("lapply(trees, write.tree)")
+        except:
+            # error converting trees
+            return []
+
+        trees = map(lambda x: str(x).split()[-1].strip('" '), retval)
+        return trees
+
+    def init_stages_model (self):
+        """
+        Defines an ODE system (by string expressions) for an SIR model where
+        the infected class moves through three stages: acute, asymptomatic, and chronic.
+        :return:
+        """
+        robjects.r("demes <- c('I1', 'I2', 'I3'")
+
+        # transition from susceptible by infection (from any stage) to stage one only
+        robjects.r("births <- rbind(c('parms$beta1*S*I1 / (S+I1+I2+I3)', '0', '0'), "
+                   "c('parms$beta2*S*I2 / (S+I1+I2+I3)', '0', '0'), "
+                   "c('parms$beta3*S*I3 / (S+I1+I2+I3)', '0', '0'))")
+        robjects.r("rownames(births)=colnames(births) <- demes")
+
+        # transition between stages of infection by "migration"
+        robjects.r("migrations <- rbind(c('0', 'parms$alpha1 * I1', '0'), "
+                   "c('0', '0', 'parms$alpha2 * I2'),"
+                   "c('0', '0', '0'))")
+        robjects.r("rownames(migrations)=colnames(migrations) <- demes")
+
+        # assume that increased death rate only at final stage
+        robjects.r("deaths <- c('(parms$mu)*I1', '(parms$mu)*I2', '(parms$mu+parms$gamma)*I3')")
+        robjects.r("names(deaths) <- demes")
+
+        # dynamics of susceptible class (replacement of deaths, loss to infection)
+        robjects.r("nonDemeDynamics <- paste(sep='', '-parms$mu*S + parms$mu*(S+I1+I2) + (parms$mu+parms$gamma)*I3', "
+                   "'-S*(parms$beta1*I1 + parms$beta2*I2 + parms$beta3*I3) / (S+I1+I2+I3)')")
+        robjects.r("names(nonDemeDynamics) <- 'S'")
+
+    def simulate_stages_trees(self, params, tree_height, tip_heights):
+        """
+
+        :return:
+        """
+        # set parameters
+        robjects.r('N=%f; beta1=%f; beta2=%f; beta3=%f' % (params['N'], params['beta1'], params['beta2'],
+                                                           params['beta3']))
+        robjects.r('alpha1=%f; alpha2=%f' % (params['alpha1'], params['alpha2']))
+        robjects.r('gamma=%f; mu=%f' % (params['gamma'], params['mu']))
+        robjects.r('t_end=%f' % (tree_height,))
+
+        # update model parameters
+        robjects.r("S=N-1; I1=1; I2=0; I3=0")
+        robjects.r("x0 <- c(I1=I1, I2=I2, I3=I3, S1=S1")
+        robjects.r("parms <- list(beta1=beta1, beta2=beta2, beta3=beta3, gamma=gamma, mu=mu)")
+
+        robjects.r("n.tips <- %d" % len(tip_heights))
+        robjects.r("tip.heights <- c(%s)" % ','.join(map(str, tip_heights)))
+
+        robjects.r("sampleTimes <- t_end - tip.heights")
+        robjects.r("sampleStates <- matrix(1, nrow=n.tips, ncol=length(demes))")
+        robjects.r("colnames(sampleStates) <- demes")
+        robjects.r("rownames(sampleStates) <- 1:n.tips")
+
+        robjects.r("m <- nrow(births)")
+        robjects.r("maxSampleTime <- max(sampleTimes)")
+
+        # solve ODE
+        robjects.r("tfgy <- make.fgy( t0, maxSampleTime, births, deaths, nonDemeDynamics, x0, migrations=migrations, "
+                   "parms=parms, fgyResolution = fgyResolution, integrationMethod = integrationMethod)")
+
+        # use prevalence of respective infected classes at end of simulation to determine sample states
+        robjects.r("demes.t.end <- tfgy[[4]][[1]]")
         if robjects.r("sum(demes.t.end)")[0] < len(tip_heights):
             # number of infected individuals at end of simulation is less than number of tips
             return []

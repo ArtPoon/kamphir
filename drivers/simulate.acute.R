@@ -67,7 +67,7 @@ deaths <- c('(parms$mu)*I1', '(parms$mu+parms$gamma)*I2')
 names(deaths) <- demes
 
 # dynamics for susceptible class (S) - complete replacement
-nonDemeDynamics <- paste(sep='', '-parms$mu*S + parms$mu*S + (parms$mu+parms$gamma)*(I1+I2)', '-S*(parms$beta1*I1 + parms$beta2*I2) / (S+I1+I2)')
+nonDemeDynamics <- paste(sep='', '-parms$mu*S + parms$mu*(S+I1) + (parms$mu+parms$gamma)*I2', '-S*(parms$beta1*I1 + parms$beta2*I2) / (S+I1+I2)')
 names(nonDemeDynamics) <- 'S'
 
 
