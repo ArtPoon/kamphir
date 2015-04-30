@@ -280,7 +280,7 @@ class Rcolgem ():
         the infected class moves through three stages: acute, asymptomatic, and chronic.
         :return:
         """
-        robjects.r("demes <- c('I1', 'I2', 'I3'")
+        robjects.r("demes <- c('I1', 'I2', 'I3')")
 
         # transition from susceptible by infection (from any stage) to stage one only
         robjects.r("births <- rbind(c('parms$beta1*S*I1 / (S+I1+I2+I3)', '0', '0'), "
@@ -317,8 +317,9 @@ class Rcolgem ():
 
         # update model parameters
         robjects.r("S=N-1; I1=1; I2=0; I3=0")
-        robjects.r("x0 <- c(I1=I1, I2=I2, I3=I3, S1=S1")
-        robjects.r("parms <- list(beta1=beta1, beta2=beta2, beta3=beta3, gamma=gamma, mu=mu)")
+        robjects.r("x0 <- c(I1=I1, I2=I2, I3=I3, S=S)")
+        robjects.r("parms <- list(beta1=beta1, beta2=beta2, beta3=beta3, alpha1=alpha1, alpha2=alpha2, "
+                   "gamma=gamma, mu=mu)")
 
         robjects.r("n.tips <- %d" % len(tip_heights))
         robjects.r("tip.heights <- c(%s)" % ','.join(map(str, tip_heights)))
