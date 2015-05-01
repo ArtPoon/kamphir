@@ -1520,7 +1520,7 @@ if (s!=1) warning('Tree simulator assumes times given in equal increments')
 		return(bdt)
 	} # end run1()
 
-    if (any(is.na(cluster))) {
+    if (any(is.null(cluster))) {
         # single-threaded mode
         result <- lapply(1:n.reps, run1)
     } else {
