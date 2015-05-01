@@ -13,6 +13,10 @@ class Rcolgem ():
         robjects.r('n.cores=%d; nreps=%d; fgyResolution=%d; integrationMethod="%s"; t0=%f' % (
             ncores, nreps, fgy_resolution, integration_method, t0))
 
+        # set up parallelization environment
+        robjects.r("require(parallel, quietly=TRUE)")
+        robjects.r("cl <- makeCluster(%d, 'FORK')" % (ncores,))
+
     def init_SI_model (self):
         """
         Defines a susceptible-infected-recovered model in rcolgem.
@@ -75,7 +79,7 @@ class Rcolgem ():
         try:
             robjects.r("trees <- simulate.binary.dated.tree.fgy( tfgy[[1]], tfgy[[2]], tfgy[[3]], tfgy[[4]], "
                        "sampleTimes, sampleStates, integrationMethod = integrationMethod, "
-                       "n.reps=nreps, n.cores=n.cores)")
+                       "n.reps=nreps, cluster=cl)")
         except:
             return []
 
@@ -163,7 +167,7 @@ class Rcolgem ():
         try:
             robjects.r("trees <- simulate.binary.dated.tree.fgy(y.times, y.births, y.migrations, y.demeSizes, "
                        "sampleTimes, sampleStates, integrationMethod=integrationMethod, "
-                       "n.reps=nreps, n.cores=n.cores)")
+                       "n.reps=nreps, cluster=cl)")
         except:
             return []
 
@@ -259,7 +263,7 @@ class Rcolgem ():
         try:
             robjects.r("trees <- simulate.binary.dated.tree.fgy( tfgy[[1]], tfgy[[2]], tfgy[[3]], tfgy[[4]], "
                        "sampleTimes, sampleStates, integrationMethod = integrationMethod, "
-                       "n.reps=nreps, n.cores=n.cores)")
+                       "n.reps=nreps, cluster=cl)")
         except:
             return []
 
@@ -352,7 +356,7 @@ class Rcolgem ():
         try:
             robjects.r("trees <- simulate.binary.dated.tree.fgy( tfgy[[1]], tfgy[[2]], tfgy[[3]], tfgy[[4]], "
                        "sampleTimes, sampleStates, integrationMethod = integrationMethod, "
-                       "n.reps=nreps, n.cores=n.cores)")
+                       "n.reps=nreps, cluster=cl)")
         except:
             return []
 

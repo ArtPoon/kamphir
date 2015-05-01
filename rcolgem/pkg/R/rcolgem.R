@@ -1198,12 +1198,8 @@ simulate.binary.dated.tree.unstructured <- function(births, deaths, nonDemeDynam
 	simulate.binary.dated.tree.fgy( tfgy[[1]], tfgy[[2]], tfgy[[3]], tfgy[[4]], sampleTimes, sampleStates, integrationMethod = integrationMethod )
 }
 
-simulate.binary.dated.tree.fgy <- function( times, births, migrations, demeSizes, sampleTimes, sampleStates, integrationMethod = 'rk4', n.reps=1, n.cores=1)
+simulate.binary.dated.tree.fgy <- function( times, births, migrations, demeSizes, sampleTimes, sampleStates, integrationMethod = 'rk4', n.reps=1, cluster=NULL)
 {
-	if (n.cores > 1) {
-		require(parallel, quietly=TRUE)
-		mc <- getOption('mc.cores', n.cores)
-	}
 
 #NOTE assumes times in equal increments
 #~ TODO mstates, ustates not in returned tree 
@@ -1524,10 +1520,12 @@ if (s!=1) warning('Tree simulator assumes times given in equal increments')
 		return(bdt)
 	} # end run1()
 
-	if (n.cores > 1) {
-		result <- mclapply(1:n.reps, run1, mc.cores=n.cores)
-	} else {
-		result <- lapply(1:n.reps, run1)
+    if (any(is.na(cluster))) {
+        # single-threaded mode
+        result <- lapply(1:n.reps, run1)
+    } else {
+		#result <- mclapply(1:n.reps, run1, mc.cores=n.cores)
+		result <- parLapply(cluster, 1:n.reps, run1)
 	}
 
     # exclude NA values

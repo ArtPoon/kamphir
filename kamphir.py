@@ -57,8 +57,9 @@ class Kamphir (PhyloKernel):
         for k, v in self.settings.iteritems():
             self.current.update({k: v['initial']})
             self.proposed.update({k: v['initial']})
-            frozen_dist = eval('stats.'+v['prior'])
-            self.priors.update({k: frozen_dist})
+            if self.use_priors:
+                frozen_dist = eval('stats.'+v['prior'])
+                self.priors.update({k: frozen_dist})
 
         # locations of files
         self.pid = os.getpid()  # make paths unique to this process
