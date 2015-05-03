@@ -40,11 +40,11 @@ class Rcolgem ():
         robjects.r("names(nonDemeDynamics) <- 'S'")
 
 
-    def simulate_SI_trees (self, params, tree_height, tip_heights):
+    def simulate_SI_trees (self, params, tree_height, tip_heights, post=False):
         """
         Simulate coalescent trees under the SI model.
         :param tip_heights:
-        :return:
+        :return: List of trees; if post=True, then a tuple of ([trees], tfgy)
         """
         # set parameters
         robjects.r('N=%f; beta=%f; gamma=%f' % (params['N'], params['beta'], params['gamma']))
@@ -90,9 +90,12 @@ class Rcolgem ():
             return []
 
         trees = map(lambda x: str(x).split()[-1].strip('" '), retval)
-        return trees
+        if post:
+            return (trees, robjects.r("tfgy[[5]]"))
+        else:
+            return trees
 
-    def simulate_SI2_trees(self, params, tree_height, tip_heights):
+    def simulate_SI2_trees(self, params, tree_height, tip_heights, post=False):
         """
         Simulate coalescent trees under a two-phase SI model.
         :param params:
@@ -180,7 +183,10 @@ class Rcolgem ():
             return []
 
         trees = map(lambda x: str(x).split()[-1].strip('" '), retval)
-        return trees
+        if post:
+            return (trees, robjects.r("tfgy"))
+        else:
+            return trees
 
 
     def init_DiffRisk_model(self):
@@ -213,7 +219,7 @@ class Rcolgem ():
                    "'I2/(S2+I2))')))")
         robjects.r("names(nonDemeDynamics) <- c('S1', 'S2')")
 
-    def simulate_DiffRisk_trees(self, params, tree_height, tip_heights):
+    def simulate_DiffRisk_trees(self, params, tree_height, tip_heights, post=False):
         """
 
         :param params:
@@ -276,7 +282,10 @@ class Rcolgem ():
             return []
 
         trees = map(lambda x: str(x).split()[-1].strip('" '), retval)
-        return trees
+        if post:
+            return (trees, robjects.r("tfgy"))
+        else:
+            return trees
 
     def init_stages_model (self):
         """
@@ -307,7 +316,7 @@ class Rcolgem ():
                    "'-S*(parms$beta1*I1 + parms$beta2*I2 + parms$beta3*I3) / (S+I1+I2+I3)')")
         robjects.r("names(nonDemeDynamics) <- 'S'")
 
-    def simulate_stages_trees(self, params, tree_height, tip_heights):
+    def simulate_stages_trees(self, params, tree_height, tip_heights, post=False):
         """
 
         :return:
@@ -369,4 +378,7 @@ class Rcolgem ():
             return []
 
         trees = map(lambda x: str(x).split()[-1].strip('" '), retval)
-        return trees
+        if post:
+            return (trees, robjects.r("tfgy"))
+        else:
+            return trees
