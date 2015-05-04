@@ -10,10 +10,9 @@ import argparse
 from Bio import Phylo
 from math import floor
 
-def post_process(logfile, tree_height, tip_heights, model, ntrees, nrows, burnin, nwkfile, csvfile):
-    # TODO: set fgyResolution
+def post_process(logfile, tree_height, tip_heights, model, ntrees, nrows, resol, burnin, nwkfile, csvfile):
     # select simulation function
-    rcolgem = Rcolgem(ncores=1, nreps=1)
+    rcolgem = Rcolgem(ncores=1, nreps=1, fgy_resolution=resol)
     if model == 'SI':
         rcolgem.init_SI_model()
         simfunc = rcolgem.simulate_SI_trees
@@ -74,10 +73,12 @@ def post_process(logfile, tree_height, tip_heights, model, ntrees, nrows, burnin
         # extract parameter vector from log data
         params = {}
         for key, vals in logdata.iteritems():
-            params.update({key: vals[i]})
+            params.update({key: vals[step]})
 
         # solve ODE and simulate tree
         trees, trajectories = simfunc(params, tree_height, tip_heights, post=True)
+        if len(trees) == 0:
+            continue
         if step in csvsteps:
             # output trajectories
             if csvheader is False:
@@ -108,6 +109,7 @@ if __name__ == '__main__':
     parser.add_argument('-burnin', type=int, default=100, help='Number of steps to skip as burnin.')
     parser.add_argument('-ntrees', type=int, default=100, help='Number of trees to output.')
     parser.add_argument('-nrows', type=int, default=100, help='Number of trajectories to output.')
+    parser.add_argument('-resol', type=int, default=100, help='Resolution for numerical solution of ODE.')
     parser.add_argument('-delimiter', default=None, help='Field separator for node names in tree.')
     parser.add_argument('-position', type=int, default=-1, help='Python index of field with tip date.')
 
@@ -121,13 +123,14 @@ if __name__ == '__main__':
         raise
 
     tree_height = max(tree.depths().values())
+    tips = tree.get_terminals()
+    ntips = len(tips)
 
     if args.delimiter is None:
         tip_heights = [0.] * ntips
     else:
         maxdate = 0
         tipdates = []
-        tips = tree.get_terminals()
         for tip in tips:
             try:
                 items = tip.name.strip("'").split(args.delimiter)
@@ -150,6 +153,6 @@ if __name__ == '__main__':
     # open handle to log file
     with open(args.log, 'rU') as handle:
         post_process(logfile=handle, tree_height=tree_height, tip_heights=tip_heights,
-                     model=args.model, ntrees=args.ntrees, nrows=args.nrows, burnin=args.burnin,
+                     model=args.model, ntrees=args.ntrees, nrows=args.nrows, resol=args.resol, burnin=args.burnin,
                      nwkfile=nwkfile, csvfile=csvfile)
 

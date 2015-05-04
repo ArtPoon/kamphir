@@ -118,11 +118,11 @@ class Rcolgem ():
         if tp1 < 3:
             params2 = dict((k, v) for k, v in params.iteritems())  # deep copy
             params2.update({'beta': params['beta2']})
-            return self.simulate_SI_trees(params2, tree_height, tip_heights)
+            return self.simulate_SI_trees(params2, tree_height, tip_heights, post)
         if tp2 < 3:
             params2 = dict((k, v) for k, v in params.iteritems())  # deep copy
             params2.update({'beta': params['beta1']})
-            return self.simulate_SI_trees(params2, tree_height, tip_heights)
+            return self.simulate_SI_trees(params2, tree_height, tip_heights, post)
 
         # set model parameters
         robjects.r('S = N-1')
@@ -184,7 +184,7 @@ class Rcolgem ():
 
         trees = map(lambda x: str(x).split()[-1].strip('" '), retval)
         if post:
-            return (trees, robjects.r("tfgy"))
+            return (trees, robjects.r("rbind(tfgy.1[[5]], tfgy.2[[5]])"))
         else:
             return trees
 
@@ -283,7 +283,7 @@ class Rcolgem ():
 
         trees = map(lambda x: str(x).split()[-1].strip('" '), retval)
         if post:
-            return (trees, robjects.r("tfgy"))
+            return (trees, robjects.r("tfgy[[5]]"))
         else:
             return trees
 
@@ -379,6 +379,6 @@ class Rcolgem ():
 
         trees = map(lambda x: str(x).split()[-1].strip('" '), retval)
         if post:
-            return (trees, robjects.r("tfgy"))
+            return (trees, robjects.r("tfgy[[5]]"))
         else:
             return trees
