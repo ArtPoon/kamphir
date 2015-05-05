@@ -18,6 +18,8 @@ The take home message is that Kamphir enables you to fit practically any model t
 * [NumPy](http://www.numpy.org/) - A package for scientific computing in Python.  Kamphir makes use of its Array objects for improved performance.
 * [dill](https://pypi.python.org/pypi/dill) - Python module that extends pickle module for serializing Python objects
 * [jinja2](http://jinja.pocoo.org/) - Python module for populating templates with Python objects.
+* [R](http://www.r-project.org/) - Widely used language for statistical computing.
+* [rpy2](http://rpy.sourceforge.net/) - Python interface to R.
  
 ##Requires at least one of:
 * [MASTER](http://compevol.github.io/MASTER/) - Java module for reaction system-based simulation of epidemiological processes in the BEAST2 package
