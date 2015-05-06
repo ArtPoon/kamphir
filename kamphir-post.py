@@ -47,7 +47,7 @@ def post_process(logfile, tree_height, tip_heights, model, ntrees, nrows, resol,
 
         ndata += 1  # the total number of data rows
         if ndata <= burnin:
-            continue
+            continue  # discard step
         for i, key in enumerate(header):
             logdata[key].append(float(items[i]))
 
@@ -57,12 +57,12 @@ def post_process(logfile, tree_height, tip_heights, model, ntrees, nrows, resol,
     nwksteps = range(maxrow)  # return all available
     if ntrees < maxrow:
         step = float(maxrow)/ntrees
-        nwksteps = [maxrow - int(round(i*step)) for i in range(ntrees)]
+        nwksteps = [maxrow - int(round(i*step))-1 for i in range(ntrees)]
 
     csvsteps = range(maxrow)
     if nrows < maxrow:
         step = float(maxrow)/nrows
-        csvsteps = [maxrow - int(round(i*step)) for i in range(nrows)]
+        csvsteps = [maxrow - int(round(i*step))-1 for i in range(nrows)]
 
     csvheader = False
     for step in range(maxrow):
@@ -77,8 +77,7 @@ def post_process(logfile, tree_height, tip_heights, model, ntrees, nrows, resol,
 
         # solve ODE and simulate tree
         trees, trajectories = simfunc(params, tree_height, tip_heights, post=True)
-        if len(trees) == 0:
-            continue
+
         if step in csvsteps:
             # output trajectories
             if csvheader is False:
@@ -92,7 +91,9 @@ def post_process(logfile, tree_height, tip_heights, model, ntrees, nrows, resol,
                 csvfile.write('\n')
 
         if step in nwksteps:
-            nwkfile.write(trees[0]+'\n')
+            # sometimes fgyResolution is set too low to simulate a tree
+            nwkfile.write('' if len(trees) == 0 else trees[0])
+            nwkfile.write('\n')
 
 
 
