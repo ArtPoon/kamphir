@@ -86,7 +86,7 @@ class TreeKernelTests(unittest.TestCase):
     def test_kernel(self):
         """Test that the tree kernel works on a simple example"""
         kernel = phyloK2.PhyloKernel(decayFactor=0.5, gaussFactor=1)
-        self.assertEqual(kernel.kernel(self.T1, self.T2), 1.125 * (1+math.exp(-0.03125)))
+        self.assertEqual(kernel.kernel(self.T1, self.T2), 1.125 * (1+math.exp(-0.0625)))
 
 if __name__ == "__main__":
     unittest.main()

@@ -3,6 +3,8 @@ from rpy2.rinterface import set_readconsole
 set_readconsole(None)
 
 import rpy2.robjects as robjects  # R is instantiated upon load module
+import logging
+logging.getLogger().setLevel(logging.DEBUG)
 
 class Rcolgem ():
     def __init__ (self, ncores, nreps, t0=0, fgy_resolution=500., integration_method='rk4'):
@@ -73,6 +75,8 @@ class Rcolgem ():
         n_inf = robjects.r("tfgy[[4]][[1]]")[0]
         if n_inf < len(tip_heights):
             # number of infected at end of simulation is less than number of tips
+            logging.warning("Number of infected at end of simulation is less than number of tips")
+            logging.warning("Could not create simulated trees")
             return []
 
         # simulate trees
@@ -81,12 +85,14 @@ class Rcolgem ():
                        "sampleTimes, sampleStates, integrationMethod = integrationMethod, "
                        "n.reps=nreps, cluster=cl)")
         except:
+            logging.warning("Exception encountered when simulating binary dated tree")
             return []
 
         robjects.r("'multiPhylo' -> class(trees)")
         try:
             retval = robjects.r("lapply(trees, write.tree)")
         except:
+            logging.warning("Could not write simulated trees")
             return []
 
         trees = map(lambda x: str(x).split()[-1].strip('" '), retval)

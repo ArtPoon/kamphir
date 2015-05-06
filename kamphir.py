@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 """
 Estimate epidemic model parameters by comparing simulations to "observed" phylogeny.
 """
@@ -14,6 +15,7 @@ from scipy import stats
 
 import logging
 
+logging.getLogger().setLevel(logging.DEBUG)
 FNULL = open(os.devnull, 'w')
 
 # see http://stackoverflow.com/questions/8804830/python-multiprocessing-pickling-error/24673524#24673524
@@ -86,6 +88,10 @@ class Kamphir (PhyloKernel):
         self.nthreads = nthreads  # number of processes for PhyloKernel
         self.gibbs = gibbs
 
+        if "odelog" in kwargs:
+            self.odelog = kwargs["odelog"]
+        else:
+            self.odelog = None
 
     def set_target_trees(self, path, treenum, delimiter=None, position=None):
         """
@@ -265,8 +271,12 @@ class Kamphir (PhyloKernel):
         Convert resulting Newick tree strings into Phylo objects.
         :return: List of Phylo BaseTree objects.
         """
+        result = self.simfunc(self.proposed, tree_height, tip_heights)
+        if self.odelog is None and result:
+            newicks, ode_solution = result
+        else:
+            newicks = result
 
-        newicks = self.simfunc(self.proposed, tree_height, tip_heights)
         trees = []
         for newick in newicks:
             try:
@@ -274,6 +284,12 @@ class Kamphir (PhyloKernel):
             except:
                 continue
             trees.append(tree)
+
+        if self.odelog is not None and result:
+            if not os.path.exists(self.odelog):
+                ode_solution.to_csvfile(self.odelog, col_names=False, row_names=False, sep='\t')
+            else:
+                ode_solution.to_csvfile(self.odelog, col_names=False, row_names=False, sep='\t', append=True)
 
         return trees
 
@@ -371,10 +387,12 @@ class Kamphir (PhyloKernel):
             total_ntips += ntips
 
             # simulate trees for this target tree
+            logging.debug("Simulating trees")
             if self.simfunc is None:
                 trees = self.simulate_external(tree_height, tip_heights)
             else:
                 trees = self.simulate_internal(tree_height, tip_heights)
+            logging.debug("Finished simulating trees")
 
             if len(trees) == 0:
                 # failed simulation
@@ -409,6 +427,7 @@ class Kamphir (PhyloKernel):
         trees.
         [sigma2] = variance parameter for Gaussian RBF
                    A higher value is more permissive.
+        :param odelog = log file for output of numerical ODE solution
         """
         # record settings in logfile header
 
@@ -508,6 +527,7 @@ if __name__ == '__main__':
     parser.add_argument('-skip', default=1, help='Number of steps in ABC-MCMC to skip for log.')
     parser.add_argument('-overwrite', action='store_true', help='Allow overwrite of log file.')
     parser.add_argument('-restart', default=None, help='Restart chain from log file specified.')
+    parser.add_argument('-odelog', default=None, help='Log file for numerical ODE solutions.')
 
     # tree input settings
     parser.add_argument('-delimiter', default=None,
@@ -667,7 +687,8 @@ if __name__ == '__main__':
                   gaussFactor=args.tau,
                   gibbs=args.gibbs,
                   nreps=args.nreps,
-                  use_priors=args.prior)
+                  use_priors=args.prior,
+                  odelog=args.odelog)
 
     kam.set_target_trees(args.nwkfile, delimiter=args.delimiter, position=args.datefield,
                         treenum=args.treenum)
