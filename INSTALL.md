@@ -60,3 +60,10 @@ Exit R. Enter the `rcolgem` subdirectory, and type these commands.
 
 The second command doesn't need to be run with `sudo` if you are
 installing locally, but you will need to have a local R library set up.
+
+Other Python packages
+---------------------
+
+The `dill` package is easily installed with `pip`.
+
+    sudo pip install dill
