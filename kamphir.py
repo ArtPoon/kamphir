@@ -676,6 +676,12 @@ if __name__ == '__main__':
                           .format(args.model))
             sys.exit()
 
+    if args.odelog is not None and os.path.exists(args.odelog):
+        modifier = 1
+        while not os.path.exists("{}.{}".format(args.odelog, modifier)):
+            modifier += 1
+        args.odelog = "{}.{}".format(args.odelog, modifier)
+
     kam = Kamphir(settings=settings,
                   driver=args.driver,
                   simfunc=simfunc,
