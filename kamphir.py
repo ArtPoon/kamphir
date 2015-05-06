@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 """
 Estimate epidemic model parameters by comparing simulations to "observed" phylogeny.
 """
@@ -12,6 +13,9 @@ from cStringIO import StringIO
 import math
 from scipy import stats
 
+import logging
+
+logging.getLogger().setLevel(logging.DEBUG)
 FNULL = open(os.devnull, 'w')
 
 # see http://stackoverflow.com/questions/8804830/python-multiprocessing-pickling-error/24673524#24673524
@@ -23,7 +27,6 @@ def run_dill_encoded(what):
 
 def apply_async(pool, fun, args):
     return pool.apply_async(run_dill_encoded, (dill.dumps((fun, args)),))
-
 
 class Kamphir (PhyloKernel):
     """
@@ -63,7 +66,7 @@ class Kamphir (PhyloKernel):
 
         # locations of files
         self.pid = os.getpid()  # make paths unique to this process
-        print 'initializing Kamphir with pid', self.pid
+        logging.info('initializing Kamphir with pid {}'.format(self.pid))
 
         self.path_to_tree = None
         self.path_to_input_csv = '/tmp/input_%d.csv' % self.pid
@@ -85,6 +88,10 @@ class Kamphir (PhyloKernel):
         self.nthreads = nthreads  # number of processes for PhyloKernel
         self.gibbs = gibbs
 
+        if "odelog" in kwargs:
+            self.odelog = kwargs["odelog"]
+        else:
+            self.odelog = None
 
     def set_target_trees(self, path, treenum, delimiter=None, position=None):
         """
@@ -133,7 +140,7 @@ class Kamphir (PhyloKernel):
                         if tipdate > maxdate:
                             maxdate = tipdate
                     except:
-                        print 'Warning: Failed to parse tipdate from label', tip.name
+                        logging.warning('Failed to parse tipdate from label {}'.format(tip.name))
                         tipdate = None  # gets interpreted as 0
                         pass
 
@@ -145,8 +152,8 @@ class Kamphir (PhyloKernel):
 
         if len(self.target_trees) == 0:
             # we didn't read any of the trees from the file!
-            print 'ERROR: File did not contain any Newick tree strings, ' \
-                  'or -treenum (%d) exceeds number of trees!' % (treenum, )
+            logging.error('File did not contain any Newick tree strings, '
+                          'or -treenum ({}) exceeds number of trees!'.format(treenum))
             sys.exit()
 
 
@@ -184,7 +191,7 @@ class Kamphir (PhyloKernel):
             while True:
                 attempts += 1
                 if attempts > max_attempts:
-                    print 'ERROR: Failed to update proposal, check initial/min/max settings.'
+                    logging.error('Failed to update proposal, check initial/min/max settings.')
                     sys.exit()
                 if self.settings[key]['log'].upper()=='TRUE':
                     # log-normal proposal - NOTE mean and sigma are on natural log scale
@@ -232,25 +239,25 @@ class Kamphir (PhyloKernel):
             self.normalize_tree(tree, self.normalize)
             self.annotate_tree(tree)
         except:
-            print 'ERROR: failed to prepare tree for kernel computation'
-            print tree
+            logging.error('Failed to prepare tree for kernel computation')
+            logging.error(tree)
             raise
 
         try:
             k = self.kernel(target_tree, tree)
             tree_denom = self.kernel(tree, tree)
         except:
-            print 'ERROR: failed to compute kernel score for tree'
-            print tree
-            print target_tree
+            logging.error('Failed to compute kernel score for tree')
+            logging.error(tree)
+            logging.error(target_tree)
             raise
 
         #knorm = k / math.sqrt(self.ref_denom * tree_denom)
         try:
             knorm = math.exp(math.log(k) - 0.5*(math.log(ref_denom) + math.log(tree_denom)))
         except:
-            print 'ERROR: failed to normalize kernel score'
-            print k, ref_denom, tree_denom
+            logging.error('Failed to normalize kernel score')
+            logging.error("{} {} {}".format(k, ref_denom, tree_denom))
             raise
 
         if output is None:
@@ -264,8 +271,12 @@ class Kamphir (PhyloKernel):
         Convert resulting Newick tree strings into Phylo objects.
         :return: List of Phylo BaseTree objects.
         """
+        result = self.simfunc(self.proposed, tree_height, tip_heights)
+        if self.odelog is None and result:
+            newicks, ode_solution = result
+        else:
+            newicks = result
 
-        newicks = self.simfunc(self.proposed, tree_height, tip_heights)
         trees = []
         for newick in newicks:
             try:
@@ -273,6 +284,12 @@ class Kamphir (PhyloKernel):
             except:
                 continue
             trees.append(tree)
+
+        if self.odelog is not None and result:
+            if not os.path.exists(self.odelog):
+                ode_solution.to_csvfile(self.odelog, col_names=False, row_names=False, sep='\t')
+            else:
+                ode_solution.to_csvfile(self.odelog, col_names=False, row_names=False, sep='\t', append=True)
 
         return trees
 
@@ -370,10 +387,12 @@ class Kamphir (PhyloKernel):
             total_ntips += ntips
 
             # simulate trees for this target tree
+            logging.debug("Simulating trees")
             if self.simfunc is None:
                 trees = self.simulate_external(tree_height, tip_heights)
             else:
                 trees = self.simulate_internal(tree_height, tip_heights)
+            logging.debug("Finished simulating trees")
 
             if len(trees) == 0:
                 # failed simulation
@@ -408,6 +427,7 @@ class Kamphir (PhyloKernel):
         trees.
         [sigma2] = variance parameter for Gaussian RBF
                    A higher value is more permissive.
+        :param odelog = log file for output of numerical ODE solution
         """
         # record settings in logfile header
 
@@ -424,12 +444,12 @@ class Kamphir (PhyloKernel):
                       self.decayFactor, self.normalize, self.gaussFactor,
                       'gibbs' if self.gibbs else ''))
 
-        print 'calculating initial kernel score'
+        logging.info('Calculating initial kernel score')
         cur_score = self.evaluate()
         if cur_score is None:
-            print 'ERROR: failed to simulate trees under initial parameter values.'
+            logging.error('Failed to simulate trees under initial parameter values')
             sys.exit()
-        print cur_score
+        logging.info('Current score is {}'.format(cur_score))
 
         step = first_step  # in case of restarting chain
         logfile.write('\t'.join(['state', 'score', 'prior'] + keys))
@@ -437,6 +457,7 @@ class Kamphir (PhyloKernel):
         logfile.flush()
 
         # TODO: generalize screen and file log parameters
+        print('\t'.join(['state', 'score', 'prior'] + keys)) # header for screen log
         while step < max_steps:
             next_score = None
             while next_score is None:
@@ -444,8 +465,8 @@ class Kamphir (PhyloKernel):
                 next_score = self.evaluate()  # returns None if simulations fail
                 
             if next_score > 1.0 or next_score < 0.0:
-                print 'ERROR: next_score (', next_score, ') outside interval [0,1], dumping proposal and EXIT'
-                print self.proposal()
+                logging.error('next_score ({}) outside interval [0,1], dumping proposal and EXIT'.format(next_score))
+                logging.error(self.proposal())
                 sys.exit()
             
             # adjust tolerance, simulated annealing
@@ -506,6 +527,7 @@ if __name__ == '__main__':
     parser.add_argument('-skip', default=1, help='Number of steps in ABC-MCMC to skip for log.')
     parser.add_argument('-overwrite', action='store_true', help='Allow overwrite of log file.')
     parser.add_argument('-restart', default=None, help='Restart chain from log file specified.')
+    parser.add_argument('-odelog', default=None, help='Log file for numerical ODE solutions.')
 
     # tree input settings
     parser.add_argument('-delimiter', default=None,
@@ -550,7 +572,14 @@ if __name__ == '__main__':
     parser.add_argument('-nthreads', type=int, default=cpu_count(),
                         help='Number of processes for kernel computation.')
 
+    # reproducibility
+    parser.add_argument('-seed', type=int, default=None,
+                        help='Random seed, to make runs reproducible')
+
     args = parser.parse_args()
+
+    # set the random seed
+    random.seed(args.seed)
 
     # initialize multiprocessing thread pool at global scope
     pool = mp.Pool(processes=args.nthreads)
@@ -582,7 +611,7 @@ if __name__ == '__main__':
                         elif key == 'tau':
                             args.tau = float(value)
                         else:
-                            print 'Warning: unrecognized key', key, 'when parsing log file for restart'
+                            logging.error('Unrecognized key {} when parsing log file for restart'.format(key))
                             sys.exit()
             else:
                 if line.endswith('\n'):
@@ -611,7 +640,7 @@ if __name__ == '__main__':
 
     else:
         if args.settings is None:
-            print 'ERROR: settings is required if not restarting from log file'
+            logging.error('Settings is required if not restarting from log file')
             sys.exit()
 
         # initialize model parameters - note variable names must match R script
@@ -623,7 +652,7 @@ if __name__ == '__main__':
     simfunc = None
     if args.model == '*':
         if args.script is None:
-            print 'Error: Must specify (-script) if (-model) is "*".'
+            logging.error('Must specify (-script) if (-model) is "*".')
             sys.exit()
         # simfunc remains set to None
     else:
@@ -642,9 +671,16 @@ if __name__ == '__main__':
             r.init_stages_model()
             simfunc = r.simulate_stages_trees
         else:
-            print 'ERROR: Unrecognized rcolgem model type', args.model
-            print 'Currently only SI, SI2, DiffRisk, and Stages are supported..'
+            logging.error('Unrecognized rcolgem model type {}\n'
+                          'Currently only SI, SI2, DiffRisk, and Stages are supported'
+                          .format(args.model))
             sys.exit()
+
+    if args.odelog is not None and os.path.exists(args.odelog):
+        modifier = 1
+        while not os.path.exists("{}.{}".format(args.odelog, modifier)):
+            modifier += 1
+        args.odelog = "{}.{}".format(args.odelog, modifier)
 
     kam = Kamphir(settings=settings,
                   driver=args.driver,
@@ -657,7 +693,8 @@ if __name__ == '__main__':
                   gaussFactor=args.tau,
                   gibbs=args.gibbs,
                   nreps=args.nreps,
-                  use_priors=args.prior)
+                  use_priors=args.prior,
+                  odelog=args.odelog)
 
     kam.set_target_trees(args.nwkfile, delimiter=args.delimiter, position=args.datefield,
                         treenum=args.treenum)
@@ -677,4 +714,3 @@ if __name__ == '__main__':
                     mintol=args.mintol,
                     decay=args.toldecay)
     logfile.close()
-
