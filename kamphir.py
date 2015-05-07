@@ -248,7 +248,7 @@ class Kamphir (PhyloKernel):
         try:
             knorm = math.exp(math.log(k) - 0.5*(math.log(ref_denom) + math.log(tree_denom)))
         except:
-            print 'ERROR: Failed to normalize kernel score'
+            print 'ERROR: failed to normalize kernel score'
             print k, ref_denom, tree_denom
             raise
 
@@ -426,7 +426,7 @@ class Kamphir (PhyloKernel):
         print 'calculating initial kernel score'
         cur_score = self.evaluate()
         if cur_score is None:
-            print 'ERROR: failed to simulate trees under initial parameter values'
+            print 'ERROR: failed to simulate trees under initial parameter values.'
             sys.exit()
         print cur_score
 
