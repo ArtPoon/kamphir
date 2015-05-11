@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 """
 Estimate epidemic model parameters by comparing simulations to "observed" phylogeny.
 """
@@ -23,7 +24,6 @@ def run_dill_encoded(what):
 
 def apply_async(pool, fun, args):
     return pool.apply_async(run_dill_encoded, (dill.dumps((fun, args)),))
-
 
 class Kamphir (PhyloKernel):
     """
@@ -84,7 +84,6 @@ class Kamphir (PhyloKernel):
         self.nreps = nreps
         self.nthreads = nthreads  # number of processes for PhyloKernel
         self.gibbs = gibbs
-
 
     def set_target_trees(self, path, treenum, delimiter=None, position=None):
         """
@@ -264,8 +263,8 @@ class Kamphir (PhyloKernel):
         Convert resulting Newick tree strings into Phylo objects.
         :return: List of Phylo BaseTree objects.
         """
-
         newicks = self.simfunc(self.proposed, tree_height, tip_heights)
+
         trees = []
         for newick in newicks:
             try:
@@ -550,7 +549,14 @@ if __name__ == '__main__':
     parser.add_argument('-nthreads', type=int, default=cpu_count(),
                         help='Number of processes for kernel computation.')
 
+    # reproducibility
+    parser.add_argument('-seed', type=int, default=None,
+                        help='Random seed, to make runs reproducible')
+
     args = parser.parse_args()
+
+    # set the random seed
+    random.seed(args.seed)
 
     # initialize multiprocessing thread pool at global scope
     pool = mp.Pool(processes=args.nthreads)
@@ -677,4 +683,3 @@ if __name__ == '__main__':
                     mintol=args.mintol,
                     decay=args.toldecay)
     logfile.close()
-
