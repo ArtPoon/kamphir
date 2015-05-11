@@ -1,1 +1,8 @@
 *.pyc
+*.log
+a.out
+*.o
+*.tar.gz
+*.so
+rcolgem/pkg.Rcheck
+
