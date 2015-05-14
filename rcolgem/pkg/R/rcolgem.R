@@ -72,10 +72,10 @@
 
 .initialize.states <- function(phylo)
 {
-     phylo$m =m <- dim(phylo$sampleStates)[2]
-     phylo$lstates <- matrix(-1, (phylo$Nnode + length(phylo$tip.label)), m)
-     phylo$mstates <- matrix(-1, (phylo$Nnode + length(phylo$tip.label)), m)
-     phylo$ustates <- matrix(-1, (phylo$Nnode + length(phylo$tip.label)), m)
+     phylo$m <- n.demes <- dim(phylo$sampleStates)[2]
+     phylo$lstates <- matrix(-1, (phylo$Nnode + length(phylo$tip.label)), n.demes)
+     phylo$mstates <- matrix(-1, (phylo$Nnode + length(phylo$tip.label)), n.demes)
+     phylo$ustates <- matrix(-1, (phylo$Nnode + length(phylo$tip.label)), n.demes)
      phylo$lstates[1:nrow(phylo$sampleStates),] <- phylo$sampleStates
      phylo$mstates[1:nrow(phylo$sampleStates),] <- phylo$sampleStates
      phylo$ustates[1:nrow(phylo$sampleStates),] <- phylo$sampleStates
@@ -125,33 +125,33 @@ make.fgy <- function(t0, t1, births, deaths, nonDemeDynamics,  x0,  migrations=N
 {
 #~      generates a discrete numeric representation of the demographic process given ODE as type str
      demeNames <- rownames(births)
-     m <- nrow(births)
+     n.demes <- nrow(births)
      nonDemeNames <- names(nonDemeDynamics)
      mm <- length(nonDemeNames)
      
      # reorder x0
-     if (length(x0) != m + mm) 
-        stop('initial conditons incorrect dimension', x0, m, mm) 
+     if (length(x0) != n.demes + mm) 
+        stop('initial conditons incorrect dimension', x0, n.demes, mm) 
      if ( sum( !(c(demeNames, nonDemeNames) %in% names(x0)) )  > 0)
         stop('initial conditions vector incorrect names', names(x0), demeNames, nonDemeNames)
      y0 <- x0[c(demeNames, nonDemeNames)]
      
      # parse equations
-     pbirths <- sapply(1:m, function(k) 
-                    sapply(1:m, function(l)
+     pbirths <- sapply(1:n.demes, function(k) 
+                    sapply(1:n.demes, function(l)
              parse(text=births[k,l])
      ))
 
      if (any(is.na(migrations)))
      {
-         migrations <- matrix('0', nrow=m, ncol=m)
+         migrations <- matrix('0', nrow=n.demes, ncol=n.demes)
          colnames(migrations)=rownames(migrations) <- demeNames
      }
-     pmigrations <- sapply( 1:m, function(k) 
-            sapply(1:m, function(l)
+     pmigrations <- sapply( 1:n.demes, function(k) 
+            sapply(1:n.demes, function(l)
              parse(text=migrations[k,l])
          ))
-     pdeaths <- sapply(1:m, function(k) parse(text=deaths[k]) )
+     pdeaths <- sapply(1:n.demes, function(k) parse(text=deaths[k]) )
      if (mm > 0) {
          pndd <- sapply(1:mm, function(k) parse(text=nonDemeDynamics[k]) )
      } else {
@@ -161,16 +161,15 @@ make.fgy <- function(t0, t1, births, deaths, nonDemeDynamics,  x0,  migrations=N
      .birth.matrix <- function( x, t) 
      {
          with(as.list(x), 
-          t(matrix( sapply( 1:m^2, function(k) eval(pbirths[k]))
-             , nrow=m, ncol=m
+          t(matrix( sapply( 1:n.demes^2, function(k) eval(pbirths[k]))
+             , nrow=n.demes, ncol=n.demes
          )))
      }
      .migration.matrix <- function( x, t) 
      {
          with(as.list(x), 
-          t(matrix( sapply( 1:m^2, function(k) eval(pmigrations[k]))
-             , nrow=m, ncol=m
-         )))
+          t(matrix( sapply( 1:n.demes^2, function(k) eval(pmigrations[k]))
+             , nrow=n.demes, ncol=n.demes)))
      }
      tBirths <- function(x, t)
      {
@@ -187,7 +186,7 @@ make.fgy <- function(t0, t1, births, deaths, nonDemeDynamics,  x0,  migrations=N
      tDeaths <- function(x, t) 
      {
          with(as.list(x, t), 
-           sapply(1:m, function(k) eval(pdeaths[k]) )
+           sapply(1:n.demes, function(k) eval(pdeaths[k]) )
          ) 
      }
      
@@ -224,6 +223,13 @@ make.fgy <- function(t0, t1, births, deaths, nonDemeDynamics,  x0,  migrations=N
      list( rev(times), Fs, Gs, Ys , ox )
 }
 
+# are all the elements of a vector numerically equal?
+# http://stackoverflow.com/questions/4752275/test-for-equality-among-all-elements-of-a-single-vector
+vector.all.equal <- function (x) 
+{
+    diff(range(x)) < .Machine$double.eps ^ 0.5
+}
+
 # we have split the interval [min.h, max.h] into resolution equal pieces
 # given a value h, return the index of the interval it falls into
 get.index <- function (h, min.h, max.h, resolution) {
@@ -234,32 +240,38 @@ simulate.binary.dated.tree.fgy <- function(times, births, migrations, demeSizes,
 {
     #NOTE assumes times in equal increments
     #~ TODO mstates, ustates not in returned tree 
-    if (length(unique(diff(sort(times)))) != 1)
+    if (vector.all.equal(diff(sort(times))) != 1)
         warning('Tree simulator assumes times given in equal increments')
 
     # moved from binaryDatedTree
     if (!is.matrix(sampleStates)) 
         stop('sampleStates must be a matrix (not a data.frame)')
 
-    n <- length(sampleTimes) 
-    m <- ncol(sampleStates)
-    maxSampleTime <- max(sampleTimes)
+    # assign taxa names if they don't have them already
     if (length(names(sampleTimes)) == 0) {
         sampleNames <- as.character(1:length(sampleTimes))
-        names(sampleTimes) <- sampleNames
-        rownames(sampleStates) <- sampleNames
+        names(sampleTimes) <- rownames(sampleStates) <- sampleNames
     }
+
+    # make sure sample times and sample states match up
     if (length(rownames(sampleStates)) == 0) 
-       warning('simulate.binaryDatedTree.fgy: sampleStates should have row names')
-    
+        warning('simulate.binaryDatedTree.fgy: sampleStates should have row names')
+    else if (!all(sort(rownames(sampleStates)) == sort(names(sampleTimes))))
+        warning('names of sampleStates and sampleTimes are different')
+    else
+        sampleStates <- sampleStates[match(names(sampleTimes), rownames(sampleStates)),,drop=FALSE]
+
+    n.taxa <- length(sampleTimes) 
+    n.demes <- ncol(sampleStates)
+    maxSampleTime <- max(sampleTimes)
+
+    # order sample heights by time
     sampleHeights <- maxSampleTime - sampleTimes 
     ix <- order(sampleHeights)
-    sortedSampleHeights <- sampleHeights[ix]
+    sampleHeights <- sampleHeights[ix]
     sortedSampleStates <- sampleStates[ix,,drop=FALSE] 
     
-    maxtime <- max(times)
-    mintime <- min(times)
-    maxHeight <- maxSampleTime -  mintime
+    maxHeight <- maxSampleTime -  min(times)
     times_ix <- order(-times)
     
     FGY_RESOLUTION <- length(times)
@@ -268,219 +280,244 @@ simulate.binary.dated.tree.fgy <- function(times, births, migrations, demeSizes,
     G_DISCRETE <- migrations[times_ix]
     Y_DISCRETE <- demeSizes[times_ix]
 
-    # the following line accounts for any discrepancies between the maximum
-    # time axis and the last sample time
-    hoffset <- maxtime - maxSampleTime
-    if (hoffset < 0) 
+    if (max(times) < maxSampleTime) 
         stop( 'Time axis does not cover the last sample time' )
 
     # construct forcing timeseries for ode's
     heights <- sort(maxSampleTime - times)
-    heights <- heights[heights <= maxHeight & heights >= 0]
-    height.indices <- get.index(heights + hoffset, mintime, maxtime, FGY_RESOLUTION)
+    heights <- heights[heights >= 0]
 
-    fmat <- do.call(rbind, lapply(F_DISCRETE[height.indices], c))
-    gmat <- do.call(rbind, lapply(G_DISCRETE[height.indices], c))
-    ymat <- do.call(rbind, lapply(Y_DISCRETE[height.indices], c))
+    fmat <- do.call(rbind, lapply(F_DISCRETE, c))
+    gmat <- do.call(rbind, lapply(G_DISCRETE, c))
+    ymat <- do.call(rbind, lapply(Y_DISCRETE, c))
     fgymat <- c(pmax(cbind(fmat, gmat, ymat), 0))
     
-    Q0 <- diag(m)
+    Q0 <- c(diag(n.demes))
     .solve.Q.A.L <- function(h0, h1, A0, L0)
      { # uses C implementation
-        parameters <- c(m, maxHeight, length(heights), sum(A0), fgymat)
-        y0 <- c(as.vector(Q0), A0, L0)
-        o <- ode(y=y0, c(h0,h1), func = "dQAL", parms = parameters, dllname = "rcolgem", initfunc = "initfunc", method=integrationMethod)
-        Q1 <- t(matrix(abs(o[nrow(o),2:(1 + m^2)]), nrow=m)) #NOTE the transpose
-        A1 <- o[nrow(o), (1 + m^2 + 1):(1 + m^2 +  m)]
+        parameters <- c(n.demes, maxHeight, length(heights), sum(A0), fgymat)
+        y0 <- c(Q0, A0, L0)
+        o <- ode(y=y0, c(h0,h1), func = "dQAL", parms = parameters, dllname =
+                 "rcolgem", initfunc = "initfunc", method=integrationMethod)
+        Q1 <- t(matrix(abs(o[nrow(o), 2:(1 + n.demes^2)]), nrow=n.demes)) #NOTE the transpose
         L1 <- o[nrow(o), ncol(o)]
-        list(unname(Q1), unname(A1), unname(L1))
+
+        # clean output
+        if (is.nan(L1)) L1 <- Inf
+        if (sum(is.nan(Q1)) > 0) Q1 <- diag(n.demes)
+
+        list(unname(Q1), unname(L1))
+    }
+
+    test.qal <- function (h0, h1, A0, L0, events, times)
+    {
+        parameters <- c(n.demes, maxHeight, length(heights), sum(A0), fgymat)
+        y0 <- c(Q0, A0, L0, sum(A0))
+        o <- ode(y = y0, times = times, func = "dQAL_RM", parms = parameters, 
+                 dllname = "rcolgem", initfunc = "initfunc",
+                 method = integrationMethod,
+                 events = list(data=events))
+
+        # extract Q matrices
+        Q1 <- o[,2:(n.demes^2+1),drop=FALSE]
+        Q1 <- lapply(1:nrow(Q1), function (i) matrix(Q1[i,], byrow=TRUE, nrow=n.demes))
+        return(Q1)
+
+        #Q1 <- lapply(o[, 3:(n.demes^2+2), drop=FALSE], matrix, nrow=n.demes)
+        Q1 <- t(matrix(abs(o[nrow(o), 2:(1 + n.demes^2)]), nrow=n.demes)) #NOTE the transpose
+        L1 <- o[nrow(o), ncol(o)-1]
+
+        # clean output
+        if (is.nan(L1)) {L1 <- Inf}
+        if (sum(is.nan(Q1)) > 0) Q1 <- diag(n.demes)
+
+        list(unname(Q1), unname(L1))
     }
     
+    # cumSortedSampleStates[s, d]: at the time of collection of sample s (going
+    # backwards in time), how many samples of deme d have been collected?
     cumSortedSampleStates <- apply(sortedSampleStates, 2, cumsum)
-    cumSortedNotSampledStates <- t(cumSortedSampleStates[n,] - t(cumSortedSampleStates) )
 
+    # cumSortedNotSampleStates[s, d]: at the time of collection of sample s (going
+    # backwards in time), how many samples of deme d remain to be collected?
+    cumSortedNotSampledStates <- t(cumSortedSampleStates[n.taxa,] - t(cumSortedSampleStates))
+
+    haxis <- seq(0, maxHeight, length.out=FGY_RESOLUTION)
     jitter.factor <- max(1e-6, maxHeight/1e6)
+
     run1 <- function(repl) {
-        jitter.heights <- jitter(sortedSampleHeights, factor=jitter.factor)
+        jitter.heights <- jitter(sampleHeights, factor=jitter.factor)
         # solve for A
-        noisy.index <- approxfun(sort(jitter.heights), 1:n, method='constant',
-                               rule=2)
+        noisy.index <- approxfun(sort(jitter.heights), 1:n.taxa, method='constant',
+                                 rule=2)
         dA <- function(h, A, parms, ...)
         {
             nsy <- cumSortedNotSampledStates[ noisy.index(h), ]
-            cur.y <- Y_DISCRETE[[get.index(h + hoffset, mintime, maxtime, FGY_RESOLUTION)]]
-            cur.f <- F_DISCRETE[[get.index(h + hoffset, mintime, maxtime, FGY_RESOLUTION)]]
-            cur.g <- G_DISCRETE[[get.index(h + hoffset, mintime, maxtime, FGY_RESOLUTION)]]
+            cur.idx <- get.index(h, 0, maxHeight, FGY_RESOLUTION)
+            cur.y <- Y_DISCRETE[[cur.idx]]
+            cur.f <- F_DISCRETE[[cur.idx]]
+            cur.g <- G_DISCRETE[[cur.idx]]
 
             A_Y <- (A - nsy) / cur.y
             A_Y[is.nan(A_Y)] <- 0
             csFpG <- colSums(cur.f + cur.g)
-            list( setNames( as.vector(
+            list( setNames( c(
              cur.g %*% A_Y - csFpG * A_Y + (cur.f %*% A_Y) * pmax(1-A_Y, 0)
              ), names(A)
             ))
         }
-        h0 <- 0
-        sampled.at.h <- function(h) which(sortedSampleHeights == h)
-
-        haxis <- seq(0, maxHeight, length.out=FGY_RESOLUTION)
         odA <-  ode(y = colSums(sortedSampleStates), times = haxis, func=dA,
-                   parms = NA, method = integrationMethod)
+                    parms = NA, method = integrationMethod)
+        AplusNotSampled <- odA[,2:(n.demes+1),drop=FALSE]
 
-        haxis <- odA[,1]
-        AplusNotSampled <- odA[,2:(m+1),drop=FALSE]
+        # Amono is the total number of lineages (of all demes) present at each time step
         Amono <- rowSums( AplusNotSampled )
         Amono[is.na(Amono)] <- min(Amono, na.rm=TRUE)
-        Amono <- Amono - min(Amono)
-        Amono <- (max(Amono)  - Amono) / max(Amono)
-        nodeHeights <- sort( approx( Amono, haxis, xout=runif(n-1, 0, 1) )$y ) # careful of impossible node heights
+
+        # transform Amono to [0, 1], reversing the magnitudes
+        Amono <- (max(Amono) - Amono) / (diff(range(Amono)))
+
+        # choose node heights by interpolating between the discrete A values
+        nodeHeights <- sort( approx( Amono, haxis, xout=runif(n.taxa-1, 0, 1) )$y ) # careful of impossible node heights
+
+        # combine sample and coalescence times
         eventTimes <- c(unique(sampleHeights), nodeHeights)
         isSampleEvent <- c(rep(TRUE, length(unique(sampleHeights))), rep(FALSE, length(nodeHeights)))
         ix <- order(eventTimes)
         eventTimes <- eventTimes[ix]
         isSampleEvent <- isSampleEvent[ix]
 
-        get.A <- function(h) {
-            i <- get.index(h, 0, maxHeight, FGY_RESOLUTION)
-            AplusNotSampled[i,] - cumSortedNotSampledStates[ noisy.index(h), ]
-        }
+        # initialize variables; tips in order of sampleHeights (which is sorted)
+        Nnode <- n.taxa - 1
+        edge.length <- rep(-1, Nnode + n.taxa - 1) # should not have root edge
+        edge <- matrix(-1, (Nnode + n.taxa - 1), 2)
 
-        S <- 1
-        L <- 0
-
-        # initialize variables; tips in order of sortedSampleHeights
-        Nnode <- n-1
-        edge.length <- rep(-1, Nnode + n-1) # should not have root edge
-        edge <- matrix(-1, (Nnode + n-1), 2)
-
-        if (length(names(sortedSampleHeights))==0)
-            tip.label <- as.character(1:n)
+        if (length(names(sampleHeights))==0)
+            tip.label <- as.character(1:n.taxa)
         else
-            tip.label <- names(sortedSampleHeights)
+            tip.label <- names(sampleHeights)
 
-        heights       <- rep(0, (Nnode + n) )
-        parentheights <- rep(-1, (Nnode + n) )
-        heights[1:n]  <- sortedSampleHeights
-        inEdgeMap     <- rep(-1, Nnode + n)
-        outEdgeMap    <- matrix(-1, (Nnode + n), 2)
-        parent        <- 1:(Nnode + n)
-        daughters     <- matrix(-1, (Nnode + n), 2)
-        lstates       <- matrix(-1, (Nnode + n), m)
-        mstates       <- matrix(-1, (Nnode + n), m)
-        ustates       <- matrix(-1, (Nnode + n), m)
-        ssm           <- matrix( 0, nrow=n, ncol=m)
-        lstates[1:n,] <-  sortedSampleStates
-        mstates[1:n,] <- lstates[1:n,]
+        heights       <- c(sampleHeights, rep(0, Nnode))
+        parentheights <- rep(-1, (Nnode + n.taxa) )
+        inEdgeMap     <- rep(-1, Nnode + n.taxa)
+        outEdgeMap    <- matrix(-1, (Nnode + n.taxa), 2)
+        parent        <- 1:(Nnode + n.taxa)
+        daughters     <- matrix(-1, (Nnode + n.taxa), 2)
+        lstates       <- matrix(-1, (Nnode + n.taxa), n.demes)
+        mstates       <- matrix(-1, (Nnode + n.taxa), n.demes)
+        ustates       <- matrix(-1, (Nnode + n.taxa), n.demes)
+        lstates[1:n.taxa,] <- sortedSampleStates
+        mstates[1:n.taxa,] <- lstates[1:n.taxa,]
 
-        isExtant <- rep(FALSE, Nnode+n)
-        isExtant[sampled.at.h(h0)] <- TRUE
-        extantLines <- which(isExtant)
+        isExtant <- rep(FALSE, Nnode+n.taxa)
+        extantLines <- which(sampleHeights == 0)
+        isExtant[extantLines] <- TRUE
 
         if (length(extantLines) > 1){
-            A0 <- colSums(as.matrix(sortedSampleStates[extantLines,], nrow=length(extantLines)) )
+            A0 <- colSums(sortedSampleStates[extantLines,,drop=FALSE])
         } else{
             A0 <- sortedSampleStates[extantLines,]
         }
-        lineageCounter <- n+1
 
-        event.F <- F_DISCRETE[get.index(tail(eventTimes, -1) + hoffset, mintime, maxtime, FGY_RESOLUTION)]
-        event.G <- G_DISCRETE[get.index(tail(eventTimes, -1) + hoffset, mintime, maxtime, FGY_RESOLUTION)]
-        event.Y <- Y_DISCRETE[get.index(tail(eventTimes, -1) + hoffset, mintime, maxtime, FGY_RESOLUTION)]
+        alpha <- n.taxa+1
+
+        h.index <- get.index(eventTimes, 0, maxHeight, FGY_RESOLUTION)
+        event.F <- F_DISCRETE[tail(h.index, -1)]
+        event.Y <- Y_DISCRETE[tail(h.index, -1)]
+
+        event.A0 <- AplusNotSampled[head(h.index, -1),,drop=FALSE] -
+                    cumSortedNotSampledStates[ noisy.index(head(eventTimes, -1)),,drop=FALSE]
+
+        n.events <- nrow(event.A0)
+        event.data.Q0 <- data.frame(var = rep(1:n.demes^2, each=n.events),
+                                    time = head(eventTimes, -1),
+                                    value = rep(c(diag(n.demes)), each=n.events),
+                                    method = "rep")
+        event.data.A0 <- data.frame(var = rep((n.demes^2+1):(n.demes^2+n.demes), each=n.events),
+                                    time = head(eventTimes, -1),
+                                    value = c(event.A0),
+                                    method = "rep")
+        event.data.A0sum <- data.frame(var = rep(n.demes^2 + n.demes + 2, n.events),
+                                       time = head(eventTimes, -1),
+                                       value = rowSums(event.A0),
+                                       method = "rep")
+        event.data <- do.call(rbind, list(event.data.Q0, event.data.A0, event.data.A0sum))
+        event.Q <- test.qal(head(eventTimes, 1), tail(eventTimes, 1),
+                            event.A0[1,], 0, event.data, eventTimes)
 
         for (ih in 1:(length(eventTimes)-1)) {
             h0 <- eventTimes[ih]
             h1 <- eventTimes[ih+1]
-            nExtant <- sum(isExtant)
 
             #get A0, process new samples, calculate state of new lines
-            A0 <- get.A(h0) 
-            out <- .solve.Q.A.L(h0, h1, A0,  L)
-            Q <- out[[1]]
-            A <- out[[2]]
-            L <- out[[3]]
+            Q <- event.Q[[ih+1]]
 
-            # clean output
-            if (is.nan(L)) {L <- Inf}
-            if (sum(is.nan(Q)) > 0) Q <- diag(length(A))
-            if (sum(is.nan(A)) > 0) A <- A0
+            # update mstates
+            nExtant <- sum(isExtant)
+            mstates[isExtant,] <- mstates[isExtant,,drop=FALSE] %*% Q
+            mstates[isExtant,] <- abs(mstates[isExtant,,drop=FALSE]) / rowSums(abs(mstates[isExtant,,drop=FALSE]))
 
-            #update mstates
-            if ( nExtant > 1)
-            {
-                mstates[isExtant,] <- t( t(Q) %*% t(mstates[isExtant,])  )
-                mstates[isExtant,] <- abs(mstates[isExtant,]) / rowSums(abs(mstates[isExtant,,drop=FALSE]))
-                #recalculate A
-                A <- colSums(mstates[isExtant,,drop=FALSE])
-            }
-            else{
-                mstates[isExtant,] <- t( t(Q) %*% mstates[isExtant,] )
-                mstates[isExtant,] <- abs(mstates[isExtant,]) / sum(abs(mstates[isExtant,]))
-                #recalculate A
-                A <- mstates[isExtant,,drop=FALSE]
-            }
+            # recalculate A
+            A <- colSums(mstates[isExtant,,drop=FALSE])
 
-            if (isSampleEvent[ih+1])
-            {
-                 sat_h1 <- sampled.at.h(h1)
-                 isExtant[sat_h1] <- TRUE
-                 heights[sat_h1] <- h1
+            if (isSampleEvent[ih+1]) {
+                isExtant[which(sampleHeights == h1)] <- TRUE
             } else { #coalecent event
-                .F <- event.F[[ih]]
-                .G <- event.G[[ih]]
-                .Y <- event.Y[[ih]]
+                F <- event.F[[ih]]
+                Y <- event.Y[[ih]]
 
-                if (nExtant > 1 && 0 %in% .Y) 
+                if (nExtant > 1 && 0 %in% Y) 
                     # last two lineages have not coalesced by simulation time zero
                     # reject this tree and return NA to prevent divide-by-zero error
                     return(NA)
 
-                a <- A / .Y
+                # a is the proportion of extant lineages in each deme
+                a <- A / Y 
                 extantLines <- which(isExtant)
 
-                .lambdamat <- (t(t(a)) %*% a) * .F
+                .lambdamat <- (t(t(a)) %*% a) * F
 
                 # determine transmission type from deme A to deme B
-                # m is number of demes
-                # m^2 is number of transmission types
-                kl <- sample.int( m^2, size=1, prob=as.vector(.lambdamat) )
-                k <- 1 + ((kl-1) %% m)#row
-                l <- 1 + floor( (kl-1) / m ) #column
+                # n.demes is number of demes
+                # n.demes^2 is number of transmission types
+                kl <- sample.int(n.demes^2, size=1, prob=c(.lambdamat) )
+                k <- 1 + ((kl-1) %% n.demes)#row
+                l <- 1 + floor( (kl-1) / n.demes ) #column
 
                 # mstates stores probabilities of deme membership (columns)
                 #  for all lineages (rows)
-                probstates <- as.matrix(mstates[extantLines,], nrow=length(extantLines))
+                probstates <- mstates[extantLines,,drop=FALSE]
 
                 # which extant lineages are source and recipient?
-                u_i <- sample.int(  nExtant, size=1, prob = probstates[,k])
-                probstates[u_i,] <- 0 # cant transmit to itself
+                u_i <- sample.int(nExtant, size=1, prob = probstates[,k])
+                probstates[u_i,] <- 0 # can't transmit to itself
                 u <- extantLines[u_i]
-                v <- sample(  extantLines, size=1, prob = probstates[,l])
+                v <- sample(extantLines, size=1, prob = probstates[,l])
 
-                ustates[u,] <- mstates[u,]
-                ustates[v,] <- mstates[v,]
+                uv <- c(u, v)
+                ustates[uv,] <- mstates[uv,]
 
-                a_u <- pmin(1, mstates[u,] / .Y )
-                a_v <- pmin(1, mstates[v,] / .Y )
-                lambda_uv <- ((a_u) %*% t( a_v )) * .F + ((a_v) %*% t( a_u )) * .F
+                a_u <- pmin(1, mstates[u,] / Y )
+                a_v <- pmin(1, mstates[v,] / Y )
+                lambda_uv <- (a_u %*% t(a_v) + a_v %*% t(a_u)) * F
 
                 palpha <- rowSums(lambda_uv) / sum(lambda_uv)
-                alpha <- lineageCounter
-                lineageCounter <- lineageCounter + 1
                 isExtant[alpha] <- TRUE
                 isExtant[u] <- isExtant[v] <- FALSE
                 lstates[alpha,] <- mstates[alpha,] <- palpha
                 heights[alpha] <- h1
 
-                uv <- c(u, v)
-                inEdgeMap[uv] <- alpha #lineageCounter
+                inEdgeMap[uv] <- alpha
                 outEdgeMap[alpha,] <- uv
                 parent[uv] <- alpha
                 parentheights[uv] <- h1
                 daughters[alpha,] <- uv
                 edge[u,] <- c(alpha, u)
+                edge[v,] <- c(alpha, v)
                 edge.length[u] <- h1 - heights[u]
-                edge[v,] <- c(alpha,v)
                 edge.length[v] <- h1 - heights[v]
+
+                alpha <- alpha + 1
             } # end else
         } # end for loop
 
@@ -488,16 +525,16 @@ simulate.binary.dated.tree.fgy <- function(times, births, migrations, demeSizes,
                      tip.label=tip.label, heights=heights,
                      parentheights=parentheights, parent=parent,
                      daughters=daughters, lstates=lstates, mstates=mstates,
-                     ustates=ustates, m=m, sampleTimes = sampleTimes,
-                     sampleStates= sampleStates, maxSampleTime=maxSampleTime,
-                     inEdgeMap = inEdgeMap, outEdgeMap=outEdgeMap)
+                     ustates=ustates, n.demes=n.demes, sampleTimes = sampleTimes,
+                     sampleStates=sampleStates, maxSampleTime=maxSampleTime,
+                     inEdgeMap=inEdgeMap, outEdgeMap=outEdgeMap)
 
         class(self) <- c("binaryDatedTree", "phylo")
         # reorder edges for compatibility with ape::phylo functions
         # (ideally ape would not care about the edge order, but actually
         # most functions assume a certain order)
-        sampleTimes2 <- sampleTimes[names(sortedSampleHeights)]
-        sampleStates2 <- lstates[1:n,,drop=FALSE]
+        sampleTimes2 <- sampleTimes[names(sampleHeights)]
+        sampleStates2 <- lstates[1:n.taxa,,drop=FALSE]
         rownames(sampleStates2) <- tip.label
         phylo <- read.tree(text=write.tree(self) )
 
@@ -514,5 +551,5 @@ simulate.binary.dated.tree.fgy <- function(times, births, migrations, demeSizes,
     }
 
     # exclude NA values
-    na.omit(result)
+    result[!is.na(result)]
 }
