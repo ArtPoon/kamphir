@@ -5,4 +5,4 @@ a.out
 *.tar.gz
 *.so
 rcolgem/pkg.Rcheck
-
+*.rds
