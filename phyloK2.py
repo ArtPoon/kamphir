@@ -18,7 +18,8 @@ class PhyloKernel:
                 withLengths=True, 
                 decayFactor=0.1, 
                 verbose=False, 
-                resolve_poly=False):
+                resolve_poly=False,
+                **kwargs):
         """
         requires a list of Phylo.Tree objects
         can cast iterator returned by Phylo.parse() as list
