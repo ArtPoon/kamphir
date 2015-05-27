@@ -1207,6 +1207,8 @@ s <- round(coef( lm(x ~ y,  data.frame(x = 1:length(times), y = sort(times))) )[
 if (s!=1) warning('Tree simulator assumes times given in equal increments')
 	n <- length(sampleTimes)
 	m <- ncol(sampleStates)
+    if (m == 1)
+        return (simulate.bdt.onedeme(times, births, demeSizes, sampleTimes, sampleStates, integrationMethod, n.reps, cluster))
 	maxSampleTime <- max(sampleTimes)
 	if (length(names(sampleTimes))==0){
 		sampleNames <- as.character(1:length(sampleTimes))
@@ -2307,4 +2309,206 @@ calculate.cluster.size.moments.from.tree <- function(bdt, heights)
 	}
 	
 	list( Mi=Mi, Mij=Mij )
+}
+
+# are all the elements of a vector numerically equal?
+# http://stackoverflow.com/questions/4752275/test-for-equality-among-all-elements-of-a-single-vector
+vector.all.equal <- function (x) 
+{
+    diff(range(x)) < .Machine$double.eps ^ 0.5
+}
+
+# we have split the interval [min.h, max.h] into resolution equal pieces
+# given a value h, return the index of the interval it falls into
+get.index <- function (h, min.h, max.h, resolution) {
+    pmin(1 + floor(resolution * h / (max.h - min.h)), resolution)    
+}
+
+
+simulate.bdt.onedeme <- function(times, births, demeSizes, sampleTimes, sampleStates, integrationMethod = 'rk4', n.reps=1, cluster=NULL)
+{
+    #NOTE assumes times in equal increments
+    #~ TODO mstates, ustates not in returned tree 
+    if (vector.all.equal(diff(sort(times))) != 1)
+        warning('Tree simulator assumes times given in equal increments')
+
+    # moved from binaryDatedTree
+    if (!is.matrix(sampleStates)) 
+        stop('sampleStates must be a matrix (not a data.frame)')
+
+    # assign taxa names if they don't have them already
+    if (length(names(sampleTimes)) == 0) {
+        sampleNames <- as.character(1:length(sampleTimes))
+        names(sampleTimes) <- rownames(sampleStates) <- sampleNames
+    }
+
+    # make sure sample times and sample states match up
+    if (length(rownames(sampleStates)) == 0) 
+        warning('simulate.binaryDatedTree.fgy: sampleStates should have row names')
+    else if (!all(sort(rownames(sampleStates)) == sort(names(sampleTimes))))
+        warning('names of sampleStates and sampleTimes are different')
+    else
+        sampleStates <- sampleStates[match(names(sampleTimes), rownames(sampleStates)),,drop=FALSE]
+
+    n.taxa <- length(sampleTimes) 
+    maxSampleTime <- max(sampleTimes)
+
+    # order sample heights by time
+    sampleHeights <- maxSampleTime - sampleTimes 
+    ix <- order(sampleHeights)
+    sampleHeights <- sampleHeights[ix]
+    sortedSampleStates <- sampleStates[ix,,drop=FALSE] 
+
+    if (length(names(sampleHeights))==0)
+        tip.label <- as.character(1:n.taxa)[ix]
+    else
+        tip.label <- names(sampleHeights)[ix]
+    
+    maxHeight <- maxSampleTime -  min(times)
+    times_ix <- order(-times)
+    
+    FGY_RESOLUTION <- length(times)
+    # reverse order (present to past): 
+    F_DISCRETE <- births[times_ix]
+    Y_DISCRETE <- demeSizes[times_ix]
+
+    if (max(times) < maxSampleTime) 
+        stop( 'Time axis does not cover the last sample time' )
+
+    # construct forcing timeseries for ode's
+    heights <- sort(maxSampleTime - times)
+    heights <- heights[heights >= 0]
+
+    fmat <- do.call(rbind, lapply(F_DISCRETE, c))
+    gmat <- rep(0, nrow(fmat))
+    ymat <- do.call(rbind, lapply(Y_DISCRETE, c))
+    fgymat <- c(pmax(cbind(fmat, gmat, ymat), 0))
+    
+    # cumSortedSampleStates[s, d]: at the time of collection of sample s (going
+    # backwards in time), how many samples of deme d have been collected?
+    cumSortedSampleStates <- apply(sortedSampleStates, 2, cumsum)
+
+    # cumSortedNotSampleStates[s, d]: at the time of collection of sample s (going
+    # backwards in time), how many samples of deme d remain to be collected?
+    cumSortedNotSampledStates <- t(cumSortedSampleStates[n.taxa,] - t(cumSortedSampleStates))
+
+    haxis <- seq(0, maxHeight, length.out=FGY_RESOLUTION)
+    jitter.factor <- max(1e-6, maxHeight/1e6)
+
+    run1 <- function(repl) {
+
+        # at a given time h, we want to be able to pick out with certainty how
+        # many samples have already been taken, so we jitter the sample times
+        # such that no two are equal
+        jitter.heights <- jitter(sampleHeights, factor=jitter.factor)
+        noisy.index <- approxfun(sort(jitter.heights), 1:n.taxa, method='constant',
+                                 rule=2)
+        # solve for A
+        dA <- function(h, A, parms, ...)
+        {
+            nsy <- cumSortedNotSampledStates[ noisy.index(h), ]
+            cur.idx <- get.index(h, 0, maxHeight, FGY_RESOLUTION)
+            cur.y <- Y_DISCRETE[[cur.idx]]
+            cur.f <- F_DISCRETE[[cur.idx]]
+
+            A_Y <- (A - nsy) / cur.y
+            A_Y[is.nan(A_Y)] <- 0
+            list(
+                -colSums(cur.f) * A_Y + (cur.f %*% A_Y) * pmax(1 - A_Y, 0)
+            )
+        }
+        odA <-  ode(y = colSums(sortedSampleStates), times = haxis, func=dA,
+                    parms = NA, method = integrationMethod)
+        AplusNotSampled <- odA[,2,drop=FALSE]
+
+        # Amono is the total number of lineages (of all demes) present at each time step
+        Amono <- rowSums( AplusNotSampled )
+        Amono[is.na(Amono)] <- min(Amono, na.rm=TRUE)
+
+        # transform Amono to [0, 1], reversing the magnitudes
+        Amono <- (max(Amono) - Amono) / (diff(range(Amono)))
+
+        # choose node heights by interpolating between the discrete A values
+        nodeHeights <- sort( approx( Amono, haxis, xout=runif(n.taxa-1, 0, 1) )$y ) # careful of impossible node heights
+
+        # combine sample and coalescence times
+        eventTimes <- c(unique(sampleHeights), nodeHeights)
+        isSampleEvent <- c(rep(TRUE, length(unique(sampleHeights))), rep(FALSE, length(nodeHeights)))
+        ix <- order(eventTimes)
+        eventTimes <- eventTimes[ix]
+        isSampleEvent <- isSampleEvent[ix]
+
+        # initialize variables; tips in order of sampleHeights (which is sorted)
+        Nnode <- n.taxa - 1
+        edge.length <- rep(-1, Nnode + n.taxa - 1) # should not have root edge
+        edge <- matrix(-1, (Nnode + n.taxa - 1), 2)
+
+        heights       <- c(sampleHeights, rep(0, Nnode))
+
+        isExtant <- rep(FALSE, Nnode+n.taxa)
+        extantLines <- which(sampleHeights == 0)
+        isExtant[extantLines] <- TRUE
+
+        alpha <- n.taxa+1
+
+        h.index <- get.index(eventTimes, 0, maxHeight, FGY_RESOLUTION)
+        event.Y <- Y_DISCRETE[tail(h.index, -1)]
+
+        for (ih in 2:(length(eventTimes))) {
+            h1 <- eventTimes[ih]
+            nExtant <- sum(isExtant)
+
+            if (isSampleEvent[ih]) {
+                isExtant[which(sampleHeights == h1)] <- TRUE
+            } else { #coalecent event
+                Y <- event.Y[[ih-1]]
+
+                if (nExtant > 1 && 0 %in% Y) {
+                    # last two lineages have not coalesced by simulation time zero 
+                    # reject this tree and return NA to prevent divide-by-zero error
+                    cat("Not all lineages coalesced by simulation time zero\n")
+                    return(NA)
+                }
+
+                # a is the proportion of extant lineages in each deme
+                extantLines <- which(isExtant)
+
+                runif(1) # advance random seed, for testing
+
+                #  for all lineages (rows)
+                probstates <- rep(1, nExtant)
+
+                # which extant lineages are source and recipient?
+                u_i <- sample.int(nExtant, size=1, prob = probstates)
+                probstates[u_i] <- 0 # can't transmit to itself
+                u <- extantLines[u_i]
+                v <- sample(extantLines, size=1, prob = probstates)
+
+                isExtant[alpha] <- TRUE
+                isExtant[u] <- isExtant[v] <- FALSE
+                heights[alpha] <- h1
+
+                edge[u,] <- c(alpha, u)
+                edge[v,] <- c(alpha, v)
+                edge.length[u] <- h1 - heights[u]
+                edge.length[v] <- h1 - heights[v]
+
+                alpha <- alpha + 1
+            } # end else
+        } # end for loop
+
+        phylo <- list(edge=edge, edge.length=edge.length, tip.label=tip.label, Nnode=Nnode)
+        class(phylo) <- "phylo"
+        read.tree(text=write.tree(phylo))
+    } # end run1()
+
+    if (any(is.null(cluster))) {
+        # single-threaded mode
+        result <- lapply(1:n.reps, run1)
+    } else {
+        result <- parLapply(cluster, 1:n.reps, run1)
+    }
+
+    # exclude NA values
+    result[!is.na(result)]
 }

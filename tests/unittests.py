@@ -18,6 +18,8 @@ from cStringIO import StringIO
 from Bio import Phylo
 
 import phyloK2
+import rcolgem
+from rpy2 import robjects
 
 # TODO: testing of multiprocessing should be optional
 import multiprocessing
@@ -73,6 +75,9 @@ class ParallelTests(unittest.TestCase):
         # make sure no two are the same
         self.assertListEqual(sorted(list(set(result))), sorted(result)) 
 
+    def tearDown(self):
+        self.pool.close()
+
 
 class TreeKernelTests(unittest.TestCase):
     """Tests for the tree kernel"""
@@ -87,6 +92,26 @@ class TreeKernelTests(unittest.TestCase):
         """Test that the tree kernel works on a simple example"""
         kernel = phyloK2.PhyloKernel(decayFactor=0.5, gaussFactor=1)
         self.assertEqual(kernel.kernel(self.T1, self.T2), 1.125 * (1+math.exp(-0.0625)))
+
+
+class RcolgemTests(unittest.TestCase):
+    """Tests for the Rcolgem simulation functions"""
+
+    def setUp(self):
+        self.r = rcolgem.Rcolgem(ncores=4, nreps=20, t0=0, fgy_resolution=500, integration_method='rk4')
+
+    def test_rcolgem_init(self):
+        """Test that rcolgem is initialized as expected"""
+        # make sure the needed variables were set when rcolgem was initialized in setUp
+        self.assertEqual(robjects.r["n.cores"][0], 4)
+        self.assertEqual(robjects.r["nreps"][0], 20)
+        self.assertEqual(robjects.r["fgyResolution"][0], 500)
+        self.assertEqual(robjects.r["integrationMethod"][0], "rk4")
+        self.assertEqual(robjects.r["t0"][0], 0)
+
+        # check that a cluster was initialized
+        self.assertEqual(robjects.r('class(cl)')[1], "cluster")
+
 
 if __name__ == "__main__":
     unittest.main()
