@@ -43,7 +43,7 @@ class Kamphir (PhyloKernel):
     
     def __init__(self, settings, script, driver, simfunc,
                  ncores=1, nreps=10, nthreads=1, gibbs=False, use_priors=False,
-                 **kwargs):
+                 sigma_coal=1., **kwargs):
         # call base class constructor
         PhyloKernel.__init__(self, **kwargs)
 
@@ -79,6 +79,7 @@ class Kamphir (PhyloKernel):
         self.tip_heights = []  # list of lists
         self.tree_heights = []
         self.ref_denom = []  # kernel score of target tree to itself
+        self.sigma_coal = sigma_coal*sigma_coal  # variance parameter for Gaussian RBF kernel
 
         self.ncores = ncores  # number of processes for rcolgem simulation
         self.nreps = nreps
@@ -108,19 +109,14 @@ class Kamphir (PhyloKernel):
                 continue
 
             # record this before normalizing
-            tree_height = max(tree.depths().values())
+            depths = tree.depths()  # distance from node to root
+            tree_height = max(depths.values())
 
-            tree.ladderize()
-            self.normalize_tree(tree, self.normalize)
-            self.annotate_tree(tree)
-
-            ref_denom = self.kernel(tree, tree)
-
+            # record tip heights - always unnormalized
             tips = tree.get_terminals()
             ntips = len(tips)
-
-            # record tip heights (list of lists)
             if delimiter is None:
+                # TODO: extract these from the tree itself (e.g., unlabelled timetree)
                 tip_heights = [0.] * ntips
             else:
                 maxdate = 0
@@ -135,12 +131,22 @@ class Kamphir (PhyloKernel):
                         print 'Warning: Failed to parse tipdate from label', tip.name
                         tipdate = None  # gets interpreted as 0
                         pass
-
                     tipdates.append(tipdate)
-
                 tip_heights = [str(maxdate-t) if t else 0 for t in tipdates]
 
-            self.target_trees.append((tree, tree_height, tip_heights, ref_denom))
+            # record node heights (coalescence times) - note these are always unnormalized
+            nodes = tree.get_nonterminals()
+            node_heights = [tree_height-depths[node] for node in nodes]
+            node_heights.sort()
+
+            # prepare tree for kernel computation
+            tree.ladderize()
+            self.normalize_tree(tree, self.normalize)
+            self.annotate_tree(tree)
+            ref_denom = self.kernel(tree, tree)
+
+            # store info in tuple
+            self.target_trees.append((tree, tree_height, tip_heights, node_heights, ref_denom))
 
         if len(self.target_trees) == 0:
             # we didn't read any of the trees from the file!
@@ -221,10 +227,30 @@ class Kamphir (PhyloKernel):
         """
         return retval
 
-    def compute(self, tree, target_tree, ref_denom, output=None):
+    def compute(self, tree, target_tree, target_node_heights, ref_denom, output=None):
         """
         Calculate kernel score.  Allow for MP execution.
         """
+
+        # get node heights before normalization
+        depths = tree.depths()
+        tree_height = max(depths.values())
+        node_heights = [tree_height-depths[node] for node in tree.get_nonterminals()]
+        node_heights.sort()
+
+        # calculate coalescent kernel
+        l2 = 0.  # squared Euclidean distance
+        for node_rank, node_height in enumerate(node_heights):
+            target_node_height = target_node_heights[node_rank]
+            delta = (node_height-target_node_height)
+            l2 += delta * delta
+
+        # note sigma has already been squared in constructor
+        # scale it here to the number of nodes so that the parameter can
+        # be applied on the same scale across trees
+        kcoal = math.exp(-1. * l2 / (self.sigma_coal*len(node_heights)))
+
+        # prepare simulated tree for kernel computation
         try:
             tree.root.branch_length = 0.
             tree.ladderize()
@@ -235,6 +261,7 @@ class Kamphir (PhyloKernel):
             print tree
             raise
 
+        # tree shape kernel
         try:
             k = self.kernel(target_tree, tree)
             tree_denom = self.kernel(tree, tree)
@@ -252,10 +279,12 @@ class Kamphir (PhyloKernel):
             print k, ref_denom, tree_denom
             raise
 
+        kernel_score = knorm * kcoal
         if output is None:
-            return knorm
+            return kernel_score
 
-        output.put(knorm)  # MP
+        output.put(kernel_score)  # multiprocessing
+
 
     def simulate_internal(self, tree_height, tip_heights):
         """
@@ -364,7 +393,7 @@ class Kamphir (PhyloKernel):
         total_ntips = 0
 
         # iterate over target trees
-        for target_tree, tree_height, tip_heights, ref_denom in self.target_trees:
+        for target_tree, tree_height, tip_heights, node_heights, ref_denom in self.target_trees:
             ntips = len(tip_heights)
             total_ntips += ntips
 
@@ -378,11 +407,12 @@ class Kamphir (PhyloKernel):
                 # failed simulation
                 return None
 
+            # compute tree shape kernel
             if self.nthreads > 1:
                 try:
                     async_results = [apply_async(pool,
                                                  self.compute,
-                                                 args=(tree, target_tree, ref_denom))
+                                                 args=(tree, target_tree, node_heights, ref_denom))
                                      for tree in trees]
                 except:
                     # TODO: dump trees to file for debugging
@@ -392,10 +422,10 @@ class Kamphir (PhyloKernel):
                 results = [r.get() for r in async_results]
             else:
                 # single-threaded mode
-                results = [self.compute(tree, target_tree, ref_denom) for tree in trees]
+                results = [self.compute(tree, target_tree, node_heights, ref_denom) for tree in trees]
 
-            # sum weighted by size of tree
-            retval += sum(results)/len(results) * ntips
+            mean_score = sum(results)/len(results)
+            retval += mean_score * ntips
 
         return retval / total_ntips
 
@@ -542,6 +572,9 @@ if __name__ == '__main__':
                              'typical branch length of the target tree.')
     parser.add_argument('-normalize', default='mean', choices=['none', 'mean', 'median'],
                         help='Scale branch lengths so trees of different lengths can be compared.')
+    parser.add_argument('-sigma', default=1.0, type=float,
+                        help='Gaussian RBF parameter (per-node standard deviation) for coalescent kernel. '
+                             'This will be multiplied by number of internal nodes to scale across trees.')
 
     # parallelization
     parser.add_argument('-ncores', type=int, default=cpu_count(),
@@ -663,6 +696,7 @@ if __name__ == '__main__':
                   gaussFactor=args.tau,
                   gibbs=args.gibbs,
                   nreps=args.nreps,
+                  sigma_coal=args.sigma,
                   use_priors=args.prior)
 
     kam.set_target_trees(args.nwkfile, delimiter=args.delimiter, position=args.datefield,
