@@ -51,6 +51,7 @@ def post_process(logfile, tree_height, tip_heights, model, ntrees, nrows, resol,
         for i, key in enumerate(header):
             logdata[key].append(float(items[i]))
 
+
     maxrow = len(logdata.values()[0])
 
     # determine steps that we will output
@@ -76,7 +77,11 @@ def post_process(logfile, tree_height, tip_heights, model, ntrees, nrows, resol,
             params.update({key: vals[step]})
 
         # solve ODE and simulate tree
-        trees, trajectories = simfunc(params, tree_height, tip_heights, post=True)
+        try:
+            trees, trajectories = simfunc(params, tree_height, tip_heights, post=True)
+        except:
+            print 'Computation failed, skipping step', step
+            sys.exit()
 
         if step in csvsteps:
             # output trajectories

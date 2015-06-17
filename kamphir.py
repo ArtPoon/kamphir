@@ -4,7 +4,8 @@ Estimate epidemic model parameters by comparing simulations to "observed" phylog
 """
 import sys
 import os
-from phyloK2 import *
+import multiprocessing as mp
+from phyloK2 import PhyloKernel
 import random
 
 from copy import deepcopy
@@ -152,6 +153,7 @@ class Kamphir (PhyloKernel):
             # we didn't read any of the trees from the file!
             print 'ERROR: File did not contain any Newick tree strings, ' \
                   'or -treenum (%d) exceeds number of trees!' % (treenum, )
+            pool.terminate()
             sys.exit()
 
 
@@ -190,6 +192,7 @@ class Kamphir (PhyloKernel):
                 attempts += 1
                 if attempts > max_attempts:
                     print 'ERROR: Failed to update proposal, check initial/min/max settings.'
+                    pool.terminate()
                     sys.exit()
                 if self.settings[key]['log'].upper()=='TRUE':
                     # log-normal proposal - NOTE mean and sigma are on natural log scale
@@ -457,6 +460,7 @@ class Kamphir (PhyloKernel):
         cur_score = self.evaluate()
         if cur_score is None:
             print 'ERROR: failed to simulate trees under initial parameter values.'
+            pool.terminate()
             sys.exit()
         print cur_score
 
@@ -475,6 +479,7 @@ class Kamphir (PhyloKernel):
             if next_score > 1.0 or next_score < 0.0:
                 print 'ERROR: next_score (', next_score, ') outside interval [0,1], dumping proposal and EXIT'
                 print self.proposal()
+                pool.terminate()
                 sys.exit()
             
             # adjust tolerance, simulated annealing
@@ -622,6 +627,7 @@ if __name__ == '__main__':
                             args.tau = float(value)
                         else:
                             print 'Warning: unrecognized key', key, 'when parsing log file for restart'
+                            pool.terminate()
                             sys.exit()
             else:
                 if line.endswith('\n'):
@@ -651,6 +657,7 @@ if __name__ == '__main__':
     else:
         if args.settings is None:
             print 'ERROR: settings is required if not restarting from log file'
+            pool.terminate()
             sys.exit()
 
         # initialize model parameters - note variable names must match R script
@@ -663,6 +670,7 @@ if __name__ == '__main__':
     if args.model == '*':
         if args.script is None:
             print 'Error: Must specify (-script) if (-model) is "*".'
+            pool.terminate()
             sys.exit()
         # simfunc remains set to None
     else:
@@ -683,6 +691,7 @@ if __name__ == '__main__':
         else:
             print 'ERROR: Unrecognized rcolgem model type', args.model
             print 'Currently only SI, SI2, DiffRisk, and Stages are supported..'
+            pool.terminate()
             sys.exit()
 
     kam = Kamphir(settings=settings,

@@ -355,7 +355,12 @@ class Rcolgem ():
             # number of infected individuals at end of simulation is less than number of tips
             return []
 
-        robjects.r("demes.sample <- sample(rep(1:length(demes), times=round(demes.t.end)), size=n.tips)")
+        try:
+            robjects.r("demes.sample <- sample(rep(1:length(demes), times=round(demes.t.end)), size=n.tips)")
+        except:
+            print robjects.r('tfgy[[4]]')
+            raise
+
         robjects.r("sampleStates <- matrix(0, nrow=n.tips, ncol=length(demes))")
         robjects.r("colnames(sampleStates) <- demes")
         robjects.r("for (i in 1:n.tips) { sampleStates[i, demes.sample[i]] <- 1 }")
@@ -382,3 +387,29 @@ class Rcolgem ():
             return (trees, robjects.r("tfgy[[5]]"))
         else:
             return trees
+
+
+    def init_pangea (self):
+        """
+        Bespoke model for PANGEA model comparison exercise.
+        :return:
+        """
+
+        # I = infected demes with baseline contact rate
+        # J = infected demes with high contact rates
+        #  1 = acute, 2 = chronic, 3 = AIDS
+        robjects.r("demes <- c('I1', 'I2', 'I3', 'J1', 'J2', 'J3')")
+
+        robjects.r("N1 <- S + I1 + I2 + I3")
+        robjects.r("N2 <- T + J1 + J2 + J3")
+        robjects.r("p11 <- '(parms$rho1 + (1-parms$rho1) * parms$c1*N1*(1-parms$rho1) / (parms$c1*N1*(1-parms$rho1) + parms$c2*N2*(1-parms$rho2)))'")
+        robjects.r("p12 <- '(1-parms$rho) * parms$c2*N2 / (parms$c1*N1 + parms$c2*N2)'")
+        robjects.r("p21 <- '(1-parms$rho) * parms$c1*N1 / (parms$c1*N1 + parms$c2*N2)'")
+        robjects.r("p22 <- '(parms$rho + (1-parms$rho) * parms$c2*N2 / (parms$c1*N1 + parms$c2*N2))'")
+
+        robjects.r("births <- rbind(c('parms$beta1*S*I1 / (S+I1+I2+I3)', '0', '0'), "
+                   "c('parms$beta2*S*I2 / (S+I1+I2+I3)', '0', '0'), "
+                   "c('parms$beta3*S*I3 / (S+I1+I2+I3)', '0', '0'))")
+        robjects.r("rownames(births)=colnames(births) <- demes")
+
+
