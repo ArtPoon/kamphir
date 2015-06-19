@@ -400,16 +400,64 @@ class Rcolgem ():
         #  1 = acute, 2 = chronic, 3 = AIDS
         robjects.r("demes <- c('I1', 'I2', 'I3', 'J1', 'J2', 'J3')")
 
-        robjects.r("N1 <- S + I1 + I2 + I3")
-        robjects.r("N2 <- T + J1 + J2 + J3")
-        robjects.r("p11 <- '(parms$rho1 + (1-parms$rho1) * parms$c1*N1*(1-parms$rho1) / (parms$c1*N1*(1-parms$rho1) + parms$c2*N2*(1-parms$rho2)))'")
-        robjects.r("p12 <- '(1-parms$rho) * parms$c2*N2 / (parms$c1*N1 + parms$c2*N2)'")
-        robjects.r("p21 <- '(1-parms$rho) * parms$c1*N1 / (parms$c1*N1 + parms$c2*N2)'")
-        robjects.r("p22 <- '(parms$rho + (1-parms$rho) * parms$c2*N2 / (parms$c1*N1 + parms$c2*N2))'")
+        # shorthand notation
+        robjects.r("N1 <- S + I1 + I2 + I3")  # main population
+        robjects.r("N2 <- T + J1 + J2 + J3")  # high risk population
+        robjects.r("NX <- SX + I1X + I2X + I3X")  # external (source) population, no demes
 
-        robjects.r("births <- rbind(c('parms$beta1*S*I1 / (S+I1+I2+I3)', '0', '0'), "
-                   "c('parms$beta2*S*I2 / (S+I1+I2+I3)', '0', '0'), "
-                   "c('parms$beta3*S*I3 / (S+I1+I2+I3)', '0', '0'))")
+        # mixing rates - convenient shorthand for birth rate matrix
+        robjects.r("p11 <- 'parms$rho1 + (1-parms$rho1) * parms$c1*N1*(1-parms$rho1) / (parms$c1*N1*(1-parms$rho1) + parms$c2*N2*(1-parms$rho2))'")
+        robjects.r("p12 <- '(1-parms$rho1) * parms$c2*N2*(1-parms$rho2) / (parms$c1*N1*(1-parms$rho1) + parms$c2*N2*(1-parms$rho2))'")
+        robjects.r("p21 <- '(1-parms$rho2) * parms$c1*N1*(1-parms$rho1) / (parms$c1*N1*(1-parms$rho1) + parms$c2*N2*(1-parms$rho2))'")
+        robjects.r("p22 <- 'parms$rho2 + (1-parms$rho2) * parms$c2*N2*(1-parms$rho2) / (parms$c1*N1*(1-parms$rho1) + parms$c2*N2*(1-parms$rho2))'")
+
+        # birth rates
+        robjects.r("births <- rbind("
+                   "c('parms$beta1*parms$c1*p11*I1/N1*S', '0', '0', 'parms$beta1*parms$c2*p21*I1/N1*T', '0', '0'),"
+                   "c('parms$beta2*parms$c1*p11*I2/N1*S', '0', '0', 'parms$beta2*parms$c2*p21*I2/N1*T', '0', '0'),"
+                   "c('parms$beta3*parms$c1*p11*I3/N1*S', '0', '0', 'parms$beta3*parms$c2*p21*I3/N1*T', '0', '0'),"
+                   "c('parms$beta1*parms$c1*p12*J1/N2*S', '0', '0', 'parms$beta1*parms$c2*p22*J1/N2*T', '0', '0'),"
+                   "c('parms$beta2*parms$c1*p12*J2/N2*S', '0', '0', 'parms$beta2*parms$c2*p22*J2/N2*T', '0', '0'),"
+                   "c('parms$beta3*parms$c1*p12*J3/N2*S', '0', '0', 'parms$beta3*parms$c2*p22*J3/N2*T', '0', '0'))")
+
         robjects.r("rownames(births)=colnames(births) <- demes")
+
+        # migration rates (transition from acute to chronic, not spatial migration)
+        robjects.r("migrations <- rbind("
+                   "c('0', 'parms$alpha1*I1', '0', '0', '0', '0'),"  # I1->I2, J1->J2
+                   "c('0', '0', 'parms$alpha2*I2', '0', '0', '0'),"  # I2->I3
+                   "c('0', '0', '0', '0', '0', '0'),"  # I3 goes nowhere
+                   "c('0', '0', '0', '0', 'parms$alpha1*J1', '0'),"
+                   "c('0', '0', '0', '0', '0', 'parms$alpha2*J2'),"
+                   "c('0', '0', '0', '0', '0', '0'))")
+        robjects.r("rownames(migrations)=colnames(migrations) <- demes")
+
+        # death rates (apply migrations from source population here)
+        robjects.r("deaths <- c("
+                   "'parms$mu*I1 + parms$m*I1X', "
+                   "'parms$mu*I2 + parms$m*I2X', "
+                   "'(parms$mu+parms$gamma)*I3 + parms$m*I3X', "
+                   "'parms$mu*J1', "
+                   "'parms$mu*J2', "
+                   "'(parms$mu+parms$gamma)*J3')")
+        robjects.r("names(deaths) <- demes")
+
+        # dynamics of susceptible class
+        robjects.r("nonDemeDynamics <- c("
+                   "'-parms$mu*S + parms$mu*N1 + parms$gamma*I3 "  # S death and replacement
+                   " - S*parms$c1 * (p11*(parms$beta1*I1 + parms$beta2*I2 + parms$beta3*I3)/N1 + p12*(parms$beta1*J1 + parms$beta2*J2 + parms$beta3*J3)/N2)"  # S loss to infection
+                   " + parms$m*SX',"  # migration of susceptibles from external source population
+                   "'-parms$mu*T + parms$mu*N2 + parms$gamma*J3"  # T death and replacement
+                   " - T*parms$c2 * (p21*(parms$beta1*I1 + parms$beta2*I2 + parms$beta3*I3)/N1 + p22*(parms$beta1*J1 + parms$beta2*J2 + parms$beta3*J3)/N2)',"
+                   "'-parms$mu*SX + parms$mu*NX + parms$gamma*I3X - SX*parms$c1 * (parms$beta1*I1X + parms$beta2*I2X + parms$beta3*I3X) / NX',"
+                   "'',"
+                   "'',"
+                   "'')")
+        robjects.r("names(nonDemeDynamics) <- c('S', 'T', 'SX', 'I1X', 'I2X', 'I3X')")
+
+
+
+
+
 
 
