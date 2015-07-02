@@ -7,6 +7,8 @@ import os
 import multiprocessing as mp
 from phyloK2 import PhyloKernel
 import random
+import rcolgem
+from Bio import Phylo
 
 from copy import deepcopy
 import time
@@ -674,8 +676,7 @@ if __name__ == '__main__':
             sys.exit()
         # simfunc remains set to None
     else:
-        import rcolgem
-        r = rcolgem.Rcolgem(ncores=args.ncores, nreps=args.nreps)
+        r = rcolgem.Rcolgem(ncores=args.ncores, nreps=args.nreps, seed=args.seed)
         if args.model == 'SI':
             r.init_SI_model()
             simfunc = r.simulate_SI_trees

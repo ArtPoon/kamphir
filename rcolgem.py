@@ -5,9 +5,11 @@ set_readconsole(None)
 import rpy2.robjects as robjects  # R is instantiated upon load module
 
 class Rcolgem ():
-    def __init__ (self, ncores, nreps, t0=0, fgy_resolution=500., integration_method='rk4'):
+    def __init__ (self, ncores, nreps, t0=0, fgy_resolution=500., integration_method='rk4', seed=None):
         # load Rcolgem package
         robjects.r("require(rcolgem, quietly=TRUE)")
+        if seed:
+            robjects.r("set.seed({})".format(seed))
 
         # default settings
         robjects.r('n.cores=%d; nreps=%d; fgyResolution=%d; integrationMethod="%s"; t0=%f' % (
@@ -15,7 +17,11 @@ class Rcolgem ():
 
         # set up parallelization environment
         robjects.r("require(parallel, quietly=TRUE)")
-        robjects.r("cl <- makeCluster(%d, 'FORK')" % (ncores,))
+
+        if (ncores > 1):
+            robjects.r("cl <- makeCluster(%d, 'FORK')" % (ncores,))
+        else:
+            robjects.r("cl <- NULL")
 
     def init_SI_model (self):
         """
