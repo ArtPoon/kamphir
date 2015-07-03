@@ -1074,8 +1074,7 @@ make.fgy <- function(t0, t1, births, deaths, nonDemeDynamics,  x0,  migrations=N
 	
 	times1 <- seq(t0, t1, length.out=fgyResolution)
 	dh <- times1[2] - times1[1]
-	if (t0 - dh <= t0) { times0 <- c() }
-	else{ times0 <-  seq(t0, t0 - dh, by=dh) }
+	if (t0 - dh <= t0) { times0 <- c() } else{ times0 <-  seq(t0, t0 - dh, by=dh) }
 	times <- unique( c( times0, times1) )
 	#print(system.time(
 		#ox <- ode(y=y0, times, func=dx, parms, method=integrationMethod)

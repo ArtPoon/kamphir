@@ -413,12 +413,12 @@ class Rcolgem ():
 
         # birth rates
         robjects.r("births <- rbind("
-                   "c('parms$beta1*parms$c1*p11*I1/N1*S', '0', '0', 'parms$beta1*parms$c2*p21*I1/N1*T', '0', '0'),"
-                   "c('parms$beta2*parms$c1*p11*I2/N1*S', '0', '0', 'parms$beta2*parms$c2*p21*I2/N1*T', '0', '0'),"
-                   "c('parms$beta3*parms$c1*p11*I3/N1*S', '0', '0', 'parms$beta3*parms$c2*p21*I3/N1*T', '0', '0'),"
-                   "c('parms$beta1*parms$c1*p12*J1/N2*S', '0', '0', 'parms$beta1*parms$c2*p22*J1/N2*T', '0', '0'),"
-                   "c('parms$beta2*parms$c1*p12*J2/N2*S', '0', '0', 'parms$beta2*parms$c2*p22*J2/N2*T', '0', '0'),"
-                   "c('parms$beta3*parms$c1*p12*J3/N2*S', '0', '0', 'parms$beta3*parms$c2*p22*J3/N2*T', '0', '0'))")
+                   "c(paste(sep='*', 'parms$beta1*parms$c1', p11, 'I1/N1*S'), '0', '0', paste(sep='*', 'parms$beta1*parms$c2', p21, 'I1/N1*T'), '0', '0'),"
+                   "c(paste(sep='*', 'parms$beta2*parms$c1', p11, 'I2/N1*S'), '0', '0', paste(sep='*', 'parms$beta2*parms$c2', p21, 'I2/N1*T'), '0', '0'),"
+                   "c(paste(sep='*', 'parms$beta3*parms$c1', p11, 'I3/N1*S'), '0', '0', paste(sep='*', 'parms$beta3*parms$c2', p21, 'I3/N1*T'), '0', '0'),"
+                   "c(paste(sep='*', 'parms$beta1*parms$c1', p12, 'J1/N2*S'), '0', '0', paste(sep='*', 'parms$beta1*parms$c2', p22, 'J1/N2*T'), '0', '0'),"
+                   "c(paste(sep='*', 'parms$beta2*parms$c1', p12, 'J2/N2*S'), '0', '0', paste(sep='*', 'parms$beta2*parms$c2', p22, 'J2/N2*T'), '0', '0'),"
+                   "c(paste(sep='*', 'parms$beta3*parms$c1', p12, 'J3/N2*S'), '0', '0', paste(sep='*', 'parms$beta3*parms$c2', p22, 'J3/N2*T'), '0', '0'))")
 
         robjects.r("rownames(births)=colnames(births) <- demes")
 
@@ -450,9 +450,9 @@ class Rcolgem ():
                    "'-parms$mu*T + parms$mu*N2 + parms$gamma*J3"  # T death and replacement
                    " - T*parms$c2 * (p21*(parms$beta1*I1 + parms$beta2*I2 + parms$beta3*I3)/N1 + p22*(parms$beta1*J1 + parms$beta2*J2 + parms$beta3*J3)/N2)',"
                    "'-parms$mu*SX + parms$mu*NX + parms$gamma*I3X - SX*parms$c1 * (parms$beta1*I1X + parms$beta2*I2X + parms$beta3*I3X) / NX',"
-                   "'',"
-                   "'',"
-                   "'')")
+                   "'-parms$mu*I1X + SX*parms$c1 * (parms$beta1*I1X + parms$beta2*I2X + parms$beta3*I3X) / NX',"
+                   "'-parms$mu*I2X + parms$alpha1*I1X',"
+                   "'-(parms$mu+parms$gamma)*I3X + parms$alpha2*I2X')")
         robjects.r("names(nonDemeDynamics) <- c('S', 'T', 'SX', 'I1X', 'I2X', 'I3X')")
 
 
