@@ -8,8 +8,6 @@ class Rcolgem ():
     def __init__ (self, ncores, nreps, t0=0, fgy_resolution=500., integration_method='rk4', seed=None):
         # load Rcolgem package
         robjects.r("require(rcolgem, quietly=TRUE)")
-        if seed:
-            robjects.r("set.seed({})".format(seed))
 
         # default settings
         robjects.r('n.cores=%d; nreps=%d; fgyResolution=%d; integrationMethod="%s"; t0=%f' % (
@@ -20,15 +18,18 @@ class Rcolgem ():
 
         if (ncores > 1):
             robjects.r("cl <- makeCluster(%d, 'FORK')" % (ncores,))
+            if seed is not None:
+                robjects.r("clusterSetRNGStream(cl, {})".format(seed))
         else:
             robjects.r("cl <- NULL")
+            if seed is not None:
+                robjects.r("set.seed({})".format(seed))
 
     def init_SI_model (self):
         """
         Defines a susceptible-infected-recovered model in rcolgem.
         :return:
         """
-
         # define ODE system - as strings, these will be evaluated with new parameters
         robjects.r('demes <- c("I")')
 
@@ -79,6 +80,7 @@ class Rcolgem ():
         n_inf = robjects.r("tfgy[[4]][[1]]")[0]
         if n_inf < len(tip_heights):
             # number of infected at end of simulation is less than number of tips
+            sys.stderr.write("Expected {} infected at end of simulation, but got {}".format(len(tip_heights), n_inf))
             return []
 
         # simulate trees
@@ -273,6 +275,7 @@ class Rcolgem ():
 
         # simulate trees
         try:
+
             robjects.r("trees <- simulate.binary.dated.tree.fgy( tfgy[[1]], tfgy[[2]], tfgy[[3]], tfgy[[4]], "
                        "sampleTimes, sampleStates, integrationMethod = integrationMethod, "
                        "n.reps=nreps, cluster=cl)")

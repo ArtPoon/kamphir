@@ -100,7 +100,6 @@ class Kamphir (PhyloKernel):
         :return: None
         """
         # TODO: Read states in from file.
-
         self.path_to_tree = path
 
         # reset lists
@@ -121,6 +120,9 @@ class Kamphir (PhyloKernel):
             if delimiter is None:
                 # TODO: extract these from the tree itself (e.g., unlabelled timetree)
                 tip_heights = [0.] * ntips
+                #for clade, depth in tree.depths().items():
+                #    if clade.is_terminal():
+                #        tip_heights.append(tree_height - depth)
             else:
                 maxdate = 0
                 tipdates = []
@@ -143,6 +145,7 @@ class Kamphir (PhyloKernel):
             node_heights.sort()
 
             # prepare tree for kernel computation
+            tree.root.branch_length = 0
             tree.ladderize()
             self.normalize_tree(tree, self.normalize)
             self.annotate_tree(tree)
@@ -245,15 +248,18 @@ class Kamphir (PhyloKernel):
 
         # calculate coalescent kernel
         l2 = 0.  # squared Euclidean distance
+        norm_target = 0. # square of norm of target heights
         for node_rank, node_height in enumerate(node_heights):
             target_node_height = target_node_heights[node_rank]
             delta = (node_height-target_node_height)
             l2 += delta * delta
+            norm_target += target_node_height * target_node_height
 
         # note sigma has already been squared in constructor
         # scale it here to the number of nodes so that the parameter can
         # be applied on the same scale across trees
-        kcoal = math.exp(-1. * l2 / (self.sigma_coal*len(node_heights)))
+        #kcoal = math.exp(-1. * l2 / (self.sigma_coal*len(node_heights)))
+        kcoal = math.exp(-1. * l2 / (self.sigma_coal*norm_target))
 
         # prepare simulated tree for kernel computation
         try:
