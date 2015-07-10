@@ -247,19 +247,21 @@ class Kamphir (PhyloKernel):
         node_heights.sort()
 
         # calculate coalescent kernel
-        l2 = 0.  # squared Euclidean distance
-        norm_target = 0. # square of norm of target heights
+        norm1sq = 0
+        norm2sq = 0
+        dotprod = 0
         for node_rank, node_height in enumerate(node_heights):
             target_node_height = target_node_heights[node_rank]
-            delta = (node_height-target_node_height)
-            l2 += delta * delta
-            norm_target += target_node_height * target_node_height
+            dotprod += node_height * target_node_height
+            norm1sq += node_height * node_height
+            norm2sq += target_node_height * target_node_height
+        kcoal = dotprod / (math.sqrt(norm1sq) * math.sqrt(norm2sq))
 
         # note sigma has already been squared in constructor
         # scale it here to the number of nodes so that the parameter can
         # be applied on the same scale across trees
         #kcoal = math.exp(-1. * l2 / (self.sigma_coal*len(node_heights)))
-        kcoal = math.exp(-1. * l2 / (self.sigma_coal*norm_target))
+
 
         # prepare simulated tree for kernel computation
         try:
