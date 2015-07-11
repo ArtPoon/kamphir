@@ -395,69 +395,138 @@ class Rcolgem ():
         :return:
         """
 
-        # I = infected demes with baseline contact rate
-        # J = infected demes with high contact rates
-        #  1 = acute, 2 = chronic, 3 = AIDS
-        robjects.r("demes <- c('I1', 'I2', 'I3', 'J1', 'J2', 'J3')")
-
-        # shorthand notation
-        robjects.r("N1 <- S + I1 + I2 + I3")  # main population
-        robjects.r("N2 <- T + J1 + J2 + J3")  # high risk population
-        robjects.r("NX <- SX + I1X + I2X + I3X")  # external (source) population, no demes
+        # I = acute, J = asymptomatic, K = chronic; S = susceptible
+        # 0 = source population, 1 = main regional population, 2 = high risk minority population
+        robjects.r("demes <- c('I0', 'J0', 'K0', 'I1', 'J1', 'K1', 'I2', 'J2', 'K2')")
 
         # mixing rates - convenient shorthand for birth rate matrix
-        robjects.r("p11 <- 'parms$rho1 + (1-parms$rho1) * parms$c1*N1*(1-parms$rho1) / (parms$c1*N1*(1-parms$rho1) + parms$c2*N2*(1-parms$rho2))'")
-        robjects.r("p12 <- '(1-parms$rho1) * parms$c2*N2*(1-parms$rho2) / (parms$c1*N1*(1-parms$rho1) + parms$c2*N2*(1-parms$rho2))'")
-        robjects.r("p21 <- '(1-parms$rho2) * parms$c1*N1*(1-parms$rho1) / (parms$c1*N1*(1-parms$rho1) + parms$c2*N2*(1-parms$rho2))'")
-        robjects.r("p22 <- 'parms$rho2 + (1-parms$rho2) * parms$c2*N2*(1-parms$rho2) / (parms$c1*N1*(1-parms$rho1) + parms$c2*N2*(1-parms$rho2))'")
+        robjects.r("p11 <- '((1-parms$rho1) * parms$c1*(S1+I1+J1+K1)*(1-parms$rho1) / (parms$c1*(S1+I1+J1+K1)*(1-parms$rho1) + parms$c2*(S2+I2+J2+K2)*(1-parms$rho2)))'")
+        robjects.r("p12 <- '(parms$rho1 + (1-parms$rho1) * parms$c2*(S2+I2+J2+K2)*(1-parms$rho2) / (parms$c1*(S1+I1+J1+K1)*(1-parms$rho1) + parms$c2*(S2+I2+J2+K2)*(1-parms$rho2)))'")
+        robjects.r("p21 <- '(parms$rho2 + (1-parms$rho2) * parms$c1*(S1+I1+J1+K1)*(1-parms$rho1) / (parms$c1*(S1+I1+J1+K1)*(1-parms$rho1) + parms$c2*(S2+I2+J2+K2)*(1-parms$rho2)))'")
+        robjects.r("p22 <- '((1-parms$rho2) * parms$c2*(S2+I2+J2+K2)*(1-parms$rho2) / (parms$c1*(S1+I1+J1+K1)*(1-parms$rho1) + parms$c2*(S2+I2+J2+K2)*(1-parms$rho2)))'")
 
         # birth rates
-        robjects.r("births <- rbind("
-                   "c(paste(sep='*', 'parms$beta1*parms$c1', p11, 'I1/N1*S'), '0', '0', paste(sep='*', 'parms$beta1*parms$c2', p21, 'I1/N1*T'), '0', '0'),"
-                   "c(paste(sep='*', 'parms$beta2*parms$c1', p11, 'I2/N1*S'), '0', '0', paste(sep='*', 'parms$beta2*parms$c2', p21, 'I2/N1*T'), '0', '0'),"
-                   "c(paste(sep='*', 'parms$beta3*parms$c1', p11, 'I3/N1*S'), '0', '0', paste(sep='*', 'parms$beta3*parms$c2', p21, 'I3/N1*T'), '0', '0'),"
-                   "c(paste(sep='*', 'parms$beta1*parms$c1', p12, 'J1/N2*S'), '0', '0', paste(sep='*', 'parms$beta1*parms$c2', p22, 'J1/N2*T'), '0', '0'),"
-                   "c(paste(sep='*', 'parms$beta2*parms$c1', p12, 'J2/N2*S'), '0', '0', paste(sep='*', 'parms$beta2*parms$c2', p22, 'J2/N2*T'), '0', '0'),"
-                   "c(paste(sep='*', 'parms$beta3*parms$c1', p12, 'J3/N2*S'), '0', '0', paste(sep='*', 'parms$beta3*parms$c2', p22, 'J3/N2*T'), '0', '0'))")
-
+        robjects.r("births <- rbind(c('parms$z*parms$beta1*parms$c1*I0/(S0+I0+J0+K0)*S0', '0', '0', "
+                   "'0', '0', '0',"
+                   "'0', '0', '0'),"
+                   "c('parms$z*parms$beta2*parms$c1*J0/(S0+I0+J0+K0)*S0', '0', '0',"
+                   "'0', '0', '0',"
+                   "'0', '0', '0'),"
+                   "c('parms$z*parms$beta3*parms$c1*K0/(S0+I0+J0+K0)*S0', '0', '0',"
+                   "'0', '0', '0',"
+                   "'0', '0', '0'),"
+                   "c('0', '0', '0',"
+                   "paste(sep='*', 'parms$z*parms$beta1*parms$c1', p11, 'I1/(S1+I1+J1+K1)*S1'), '0', '0',"
+                   "paste(sep='*', 'parms$z*parms$beta1*parms$c2', p21, 'I1/(S1+I1+J1+K1)*S2'), '0', '0'),"
+                   "c('0', '0', '0',"
+                   "paste(sep='*', 'parms$z*parms$beta2*parms$c1', p11, 'J1/(S1+I1+J1+K1)*S1'), '0', '0',"
+                   "paste(sep='*', 'parms$z*parms$beta2*parms$c2', p21, 'J1/(S1+I1+J1+K1)*S2'), '0', '0'),"
+                   "c('0', '0', '0',"
+                   "paste(sep='*', 'parms$z*parms$beta3*parms$c1', p11, 'K1/(S1+I1+J1+K1)*S1'), '0', '0',"
+                   "paste(sep='*', 'parms$z*parms$beta3*parms$c2', p21, 'K1/(S1+I1+J1+K1)*S2'), '0', '0'),"
+                   "c('0', '0', '0',"
+                   "paste(sep='*', 'parms$z*parms$beta1*parms$c1', p12, 'I2/(S2+I2+J2+K2)*S1'), '0', '0',"
+                   "paste(sep='*', 'parms$z*parms$beta1*parms$c2', p22, 'I2/(S2+I2+J2+K2)*S2'), '0', '0'),"
+                   "c('0', '0', '0',"
+                   "paste(sep='*', 'parms$z*parms$beta2*parms$c1', p12, 'J2/(S2+I2+J2+K2)*S1'), '0', '0',"
+                   "paste(sep='*', 'parms$z*parms$beta2*parms$c2', p22, 'J2/(S2+I2+J2+K2)*S2'), '0', '0'),"
+                   "c('0', '0', '0',"
+                   "paste(sep='*', 'parms$z*parms$beta3*parms$c1', p12, 'K2/(S2+I2+J2+K2)*S1'), '0', '0',"
+                   "paste(sep='*', 'parms$z*parms$beta3*parms$c2', p22, 'K2/(S2+I2+J2+K2)*S2'), '0', '0'))")
         robjects.r("rownames(births)=colnames(births) <- demes")
 
         # migration rates (transition from acute to chronic, not spatial migration)
         robjects.r("migrations <- rbind("
-                   "c('0', 'parms$alpha1*I1', '0', '0', '0', '0'),"  # I1->I2, J1->J2
-                   "c('0', '0', 'parms$alpha2*I2', '0', '0', '0'),"  # I2->I3
-                   "c('0', '0', '0', '0', '0', '0'),"  # I3 goes nowhere
-                   "c('0', '0', '0', '0', 'parms$alpha1*J1', '0'),"
-                   "c('0', '0', '0', '0', '0', 'parms$alpha2*J2'),"
-                   "c('0', '0', '0', '0', '0', '0'))")
+                   "c('0', 'parms$alpha1*I0', '0', '(parms$mig*I1 + 1e-4) * I0/(S0+I0+J0+K0)', '0', '0', '0', '0', '0'),"
+                   "c('0', '0', 'parms$alpha2*J0', '0', 'parms$mig*J1*J0/(S0+I0+J0+K0)', '0', '0', '0', '0'),"
+                   "c('0', '0', '0', '0', '0', '0', '0', '0', '0'),"
+                   "c('0', '0', '0', '0', 'parms$alpha1*I1', '0', '0', '0', '0'),"
+                   "c('0', '0', '0', '0', '0', 'parms$alpha2*J1', '0', '0', '0'),"
+                   "c('0', '0', '0', '0', '0', '0', '0', '0', '0'),"
+                   "c('0', '0', '0', '0', '0', '0', '0', 'parms$alpha1*I2', '0'),"
+                   "c('0', '0', '0', '0', '0', '0', '0', '0', 'parms$alpha2*J2'),"
+                   "c('0', '0', '0', '0', '0', '0', '0', '0', '0'))")
         robjects.r("rownames(migrations)=colnames(migrations) <- demes")
 
         # death rates (apply migrations from source population here)
-        robjects.r("deaths <- c("
-                   "'parms$mu*I1 + parms$m*I1X', "
-                   "'parms$mu*I2 + parms$m*I2X', "
-                   "'(parms$mu+parms$gamma)*I3 + parms$m*I3X', "
-                   "'parms$mu*J1', "
-                   "'parms$mu*J2', "
-                   "'(parms$mu+parms$gamma)*J3')")
+        robjects.r("deaths <- c('parms$mu*I0', 'parms$mu*J0', '(parms$mu+parms$gamma)*K0',"
+                   "'parms$mu*I1', 'parms$mu*J1', '(parms$mu+parms$gamma)*K1',"
+                   "'parms$mu*I2', 'parms$mu*J2', '(parms$mu+parms$gamma)*K2')")
         robjects.r("names(deaths) <- demes")
 
         # dynamics of susceptible class
-        robjects.r("nonDemeDynamics <- c("
-                   "'-parms$mu*S + parms$mu*N1 + parms$gamma*I3 "  # S death and replacement
-                   " - S*parms$c1 * (p11*(parms$beta1*I1 + parms$beta2*I2 + parms$beta3*I3)/N1 + p12*(parms$beta1*J1 + parms$beta2*J2 + parms$beta3*J3)/N2)"  # S loss to infection
-                   " + parms$m*SX',"  # migration of susceptibles from external source population
-                   "'-parms$mu*T + parms$mu*N2 + parms$gamma*J3"  # T death and replacement
-                   " - T*parms$c2 * (p21*(parms$beta1*I1 + parms$beta2*I2 + parms$beta3*I3)/N1 + p22*(parms$beta1*J1 + parms$beta2*J2 + parms$beta3*J3)/N2)',"
-                   "'-parms$mu*SX + parms$mu*NX + parms$gamma*I3X - SX*parms$c1 * (parms$beta1*I1X + parms$beta2*I2X + parms$beta3*I3X) / NX',"
-                   "'-parms$mu*I1X + SX*parms$c1 * (parms$beta1*I1X + parms$beta2*I2X + parms$beta3*I3X) / NX',"
-                   "'-parms$mu*I2X + parms$alpha1*I1X',"
-                   "'-(parms$mu+parms$gamma)*I3X + parms$alpha2*I2X')")
-        robjects.r("names(nonDemeDynamics) <- c('S', 'T', 'SX', 'I1X', 'I2X', 'I3X')")
+        robjects.r("nonDemeDynamics <- c('-parms$mu*S0 + parms$mu*(S0+I0+J0+K0) + parms$gamma*K0 - S0*parms$c1*parms$z*(parms$beta1*I0+parms$beta2*J0+parms$beta3*K0)/(S0+I0+J0+K0) + parms$mig*(I1*I0+J1*J0)/(S0+I0+J0+K0)', "
+                   "paste(sep='', '-parms$mu*S1 + parms$mu*(S1+I1+J1+K1) + parms$gamma*K1 - S1*parms$c1*parms$z*(', p11, "
+                   "'*(parms$beta1*I1 + parms$beta2*J1 + parms$beta3*K1)/(S1+I1+J1+K1) + ', p12, "
+                   "'*(parms$beta1*I2 + parms$beta2*J2 + parms$beta3*K2)/(S2+I2+J2+K2))'),"
+                   "paste(sep='', '-parms$mu*S2 + parms$mu*(S2+I2+J2+K2) + parms$gamma*K2 - S2*parms$c2*parms$z*(', p21, "
+                   "'*(parms$beta1*I1 + parms$beta2*J1 + parms$beta3*K1)/(S1+I1+J1+K1) + ', p22, "
+                   "'*(parms$beta1*I2 + parms$beta2*J2 + parms$beta3*K2)/(S2+I2+J2+K2))'))")
+        robjects.r("names(nonDemeDynamics) <- c('S0', 'S1', 'S2')")
 
 
+    def simulate_pangea(self, params, tree_height, tip_heights, eval_period=5*52.):
+        """
+        Time scaled to weeks.
+        :param params:
+        :param eval_period:
+        :param tree_height:
+        :param tip_heights:
+        :param post:
+        :return:
+        """
 
+        vars = ['alpha1', 'alpha2', 'gamma', 'mu', 'beta1', 'beta2', 'beta3', 'rho1', 'rho2', 'c1', 'c2',
+                'mig', 'z']
 
+        # initialize population sizes
+        robjects.r("N0=%f; N1=%f; p=%f")
+        robjects.r("S0=N0-1; I0=1; J0=0; K0=0")
+        robjects.r("S1=N1*(1-p); I1=0; J1=0; K1=0")
+        robjects.r("S2=N1*p; I2=0; J2=0; K2=0")
+        robjects.r("x0 = c(I0=I0, J0=J0, K0=K0,"
+                   "I1=I1, J1=J1, K1=K1,"
+                   "I2=I2, J2=J2, K2=K2, S0=S0, S1=S1, S2=S2)")
 
+        # set model parameters
+        for v in vars:
+            if v not in params:
+                return []
+            if v == 'z':
+                # set to z-factor of first time interval
+                robjects.r('z=%f' % (params['z1'],))
+                continue
+            robjects.r("%s=%f" % (v, params[v]))
+        robjects.r("parms <- list(%s)" % (','.join(['%s=%s'%(v, v) for v in vars]), ))
 
+        # set simulation conditions
+        robjects.r("n.tips=%d" % (len(tip_heights), ))
+        robjects.r("t.end=%f; eval.period=%f" % (tree_height, eval_period))
+        robjects.r("sampleTimes <- rep(t.end, times=n.tips)")
+        robjects.r("maxSampleTime <- max(sampleTimes)")
+
+        # solve ODE system for first time interval
+        robjects.r("t0 <- 0; t1 <- (maxSampleTime-eval.period) / 2")
+        robjects.r("fgyRes.1 <- round(fgyResolution * (t1-t0) / maxSampleTime)")
+        robjects.r("tfgy.1 <- make.fgy(t0, t1, births, deaths, nonDemeDynamics, x0, migrations=migrations, parms=parms,"
+                   "fgyResolution=fgyRes.1, integrationMethod=integrationMethod)")
+
+        # use state of system at end of time interval to initialize next time interval
+        robjects.r("x1 <- tfgy.1[[5]][fgyRes.1, 2:ncol(tfgy.1[[5]])]")
+        robjects.r("t2 <- maxSampleTime-eval.period")
+        robjects.r("fgyRes.2 <- round(fgyResolution * (t2-t1) / maxSampleTime)")
+        robjects.r("parms$z <- %f" % (params['z2'],))
+        robjects.r("tfgy.2 <- make.fgy(t1, t2, births, deaths, nonDemeDynamics, x1, migrations=migrations, parms=parms,"
+                   "fgyResolution=fgyRes.2, integrationMethod=integrationMethod)")
+
+        # solve last time interval
+        robjects.r("x2 <- tfgy.2[[5]][fgyRes.2, 2:ncol(tfgy.2[[5]])]")
+        robjects.r("t3 <- maxSampleTime")
+        robjects.r("fgyRes.3 <- fgyResolution - fgyRes.1 - fgyRes.2")
+        robjects.r("parms$z <- %f" % (params['z3'],))
+        robjects.r("tfgy.3 <- make.fgy(t2, t3, births, deaths, nonDemeDynamics, x2, migrations=migrations, parms=parms,"
+                   "fgyResolution=fgyRes.3, integrationMethod=integrationMethod)")
+
+        # which deme was each tip sampled from
+        robjects.r("sampleStates <- matrix(0, nrow=n.tips, ncol=length(demes))")
 
