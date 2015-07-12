@@ -527,6 +527,32 @@ class Rcolgem ():
         robjects.r("tfgy.3 <- make.fgy(t2, t3, births, deaths, nonDemeDynamics, x2, migrations=migrations, parms=parms,"
                    "fgyResolution=fgyRes.3, integrationMethod=integrationMethod)")
 
-        # which deme was each tip sampled from
+        # sample demes based on frequencies at last time point
         robjects.r("sampleStates <- matrix(0, nrow=n.tips, ncol=length(demes))")
+        robjects.r("colnames(sampleStates) <- demes")
+        robjects.r("for (i in 1:n.tips) { sampleStates[i, demes.sample[i]] <- 1 }")
+        robjects.r("rownames(sampleStates) <- paste(1:n.tips, demes.sample, sep='_')")
 
+        # reconstritute the entire ODE
+        robjects.r("y.times <- rev(seq(0, maxSampleTime, length.out=fgyResolution))")
+        robjects.r("y.births <- c(tfgy.3[[2]], tfgy.2[[2]], tfgy.1[[2]])")
+        robjects.r("y.migrations <- c(tfgy.3[[3]], tfgy.2[[3]], tfgy.1[[3]])")
+        robjects.r("y.demeSizes <- c(tfgy.3[[4]], tfgy.2[[4]], tfgy.1[[4]])")
+
+        # simulate trees
+        try:
+            robjects.r("trees <- simulate.binary.dated.tree.fgy( y.times, y.births, y.migrations, y.demeSizes, sampleTimes,"
+                       " sampleStates, integrationMethod = integrationMethod, n.reps=nreps)")
+        except:
+            return []
+
+        # convert R objects into Python strings in Newick format
+        robjects.r("class(trees) <- 'multiPhylo'")
+        try:
+            retval = robjects.r("lapply(trees, write.tree)")
+        except:
+            # error converting trees
+            return []
+
+        trees = map(lambda x: str(x).split()[-1].strip('" '), retval)
+        return trees
