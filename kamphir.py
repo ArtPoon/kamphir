@@ -7,6 +7,8 @@ import os
 import multiprocessing as mp
 from phyloK2 import PhyloKernel
 import random
+import rcolgem
+from Bio import Phylo
 
 from copy import deepcopy
 import time
@@ -98,7 +100,6 @@ class Kamphir (PhyloKernel):
         :return: None
         """
         # TODO: Read states in from file.
-
         self.path_to_tree = path
 
         # reset lists
@@ -119,6 +120,9 @@ class Kamphir (PhyloKernel):
             if delimiter is None:
                 # TODO: extract these from the tree itself (e.g., unlabelled timetree)
                 tip_heights = [0.] * ntips
+                #for clade, depth in tree.depths().items():
+                #    if clade.is_terminal():
+                #        tip_heights.append(tree_height - depth)
             else:
                 maxdate = 0
                 tipdates = []
@@ -141,6 +145,7 @@ class Kamphir (PhyloKernel):
             node_heights.sort()
 
             # prepare tree for kernel computation
+            tree.root.branch_length = 0
             tree.ladderize()
             self.normalize_tree(tree, self.normalize)
             self.annotate_tree(tree)
@@ -242,16 +247,21 @@ class Kamphir (PhyloKernel):
         node_heights.sort()
 
         # calculate coalescent kernel
-        l2 = 0.  # squared Euclidean distance
+        norm1sq = 0
+        norm2sq = 0
+        dotprod = 0
         for node_rank, node_height in enumerate(node_heights):
             target_node_height = target_node_heights[node_rank]
-            delta = (node_height-target_node_height)
-            l2 += delta * delta
+            dotprod += node_height * target_node_height
+            norm1sq += node_height * node_height
+            norm2sq += target_node_height * target_node_height
+        kcoal = dotprod / (math.sqrt(norm1sq) * math.sqrt(norm2sq))
 
         # note sigma has already been squared in constructor
         # scale it here to the number of nodes so that the parameter can
         # be applied on the same scale across trees
-        kcoal = math.exp(-1. * l2 / (self.sigma_coal*len(node_heights)))
+        #kcoal = math.exp(-1. * l2 / (self.sigma_coal*len(node_heights)))
+
 
         # prepare simulated tree for kernel computation
         try:
@@ -674,8 +684,7 @@ if __name__ == '__main__':
             sys.exit()
         # simfunc remains set to None
     else:
-        import rcolgem
-        r = rcolgem.Rcolgem(ncores=args.ncores, nreps=args.nreps)
+        r = rcolgem.Rcolgem(ncores=args.ncores, nreps=args.nreps, seed=args.seed)
         if args.model == 'SI':
             r.init_SI_model()
             simfunc = r.simulate_SI_trees
