@@ -2,7 +2,7 @@
 # modified by Rosemary McCloskey, 2014
 
 from Bio import Phylo
-from numpy import zeros
+#from numpy import zeros
 import math
 import multiprocessing as mp
 
@@ -93,7 +93,8 @@ class PhyloKernel:
             self.annotate_tree(t)
             self.trees.append(t)
             
-        self.kmat = zeros( (self.ntrees, self.ntrees) )
+        self.kmat = [[0 for i in self.ntrees] for j in self.ntrees]
+        #self.kmat = zeros( (self.ntrees, self.ntrees) )
         self.is_kmat_computed = False
         self.delta_values = {}
     
@@ -134,12 +135,14 @@ class PhyloKernel:
         """
         for tip in t.get_terminals():
             tip.production = 0
+
         for i, node in enumerate(t.get_nonterminals(order='postorder')):
             children = node.clades
             nterms = sum( [c.production == 0 for c in children] )
             node.production = nterms + 1
             node.index = i
             branch_lengths = [c.branch_length for c in node.clades]
+            node.bl = branch_lengths
             node.sqbl = sum([bl**2 for bl in branch_lengths])
 
     def compute_matrix(self):
@@ -168,22 +171,18 @@ class PhyloKernel:
         if not hasattr(nodes2[0], 'production'):
             self.annotate_tree(t2)
 
-        dp_matrix = [[0 for n2 in nodes2] for n1 in nodes1]
-        
+        dp_matrix = {}
+
         # iterate over non-terminals, visiting children before parents
         for ni, n1 in enumerate(nodes1):
             if myrank is not None and nprocs and ni % nprocs != myrank:
                 continue
 
             for n2 in nodes2:
+
                 if n1.production == n2.production:
-                    bl1 = [c1.branch_length for c1 in n1.clades]
-                    bl2 = [c2.branch_length for c2 in n2.clades]
-                    try:
-                        res = self.decayFactor * math.exp( -1. / self.gaussFactor
-                            * (n1.sqbl + n2.sqbl - 2*sum([(bl1[i]*bl2[i]) for i in range(len(bl1))])))
-                    except:
-                        raise
+                    res = self.decayFactor * math.exp( -1. / self.gaussFactor
+                        * (n1.sqbl + n2.sqbl - 2*sum([(n1.bl[i]*n2.bl[i]) for i in range(len(n1.bl))])))
 
                     for cn1 in range(2):
                         c1 = n1.clades[cn1]
@@ -196,14 +195,17 @@ class PhyloKernel:
                             # branches are terminal
                             res *= self.sigma + self.decayFactor
                         else:
-                            res *= self.sigma + dp_matrix[c1.index][c2.index]
+                            try:
+                                res *= self.sigma + dp_matrix[(c1.index, c2.index)]
+                            except KeyError:
+                                res *= self.sigma
             
-                    dp_matrix[n1.index][n2.index] = res
+                    dp_matrix[(n1.index, n2.index)] = res
                     k += res
 
         if output is None:
             return k
-
+        
         output.put(k)
 
     def kernel_parallel(self, t1, t2, nthreads):
