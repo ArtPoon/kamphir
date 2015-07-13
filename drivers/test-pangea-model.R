@@ -84,11 +84,11 @@ names(deaths) <- demes
 
 # dynamics of susceptible class
 nonDemeDynamics <- c(
-	'-parms$mu*S0 + parms$mu*(S0+I0+J0+K0) + parms$gamma*K0 - S0*parms$c1*parms$z*(parms$beta1*I0+parms$beta2*J0+parms$beta3*K0)/(S0+I0+J0+K0) + parms$mig*(I1*I0+J1*J0)/(S0+I0+J0+K0)', 
-	paste(sep='', '-parms$mu*S1 + parms$mu*(S1+I1+J1+K1) + parms$gamma*K1 - S1*parms$c1*parms$z*(', p11, 
+	'-parms$mu*S0 + +parms$lam*S0 + parms$mu*(S0+I0+J0+K0) + parms$gamma*K0 - S0*parms$c1*parms$z*(parms$beta1*I0+parms$beta2*J0+parms$beta3*K0)/(S0+I0+J0+K0) + parms$mig*(I1*I0+J1*J0)/(S0+I0+J0+K0)', 
+	paste(sep='', '-parms$mu*S1 + parms$lam*S1 + parms$mu*(S1+I1+J1+K1) + parms$gamma*K1 - S1*parms$c1*parms$z*(', p11, 
 	  '*(parms$beta1*I1 + parms$beta2*J1 + parms$beta3*K1)/(S1+I1+J1+K1) + ', p12, 
 	  '*(parms$beta1*I2 + parms$beta2*J2 + parms$beta3*K2)/(S2+I2+J2+K2))'),
-	paste(sep='', '-parms$mu*S2 + parms$mu*(S2+I2+J2+K2) + parms$gamma*K2 - S2*parms$c2*parms$z*(', p21, 
+	paste(sep='', '-parms$mu*S2 + parms$lam*S2 + parms$mu*(S2+I2+J2+K2) + parms$gamma*K2 - S2*parms$c2*parms$z*(', p21, 
 	  '*(parms$beta1*I1 + parms$beta2*J1 + parms$beta3*K1)/(S1+I1+J1+K1) + ', p22, 
 	  '*(parms$beta1*I2 + parms$beta2*J2 + parms$beta3*K2)/(S2+I2+J2+K2))')
 )
@@ -124,7 +124,8 @@ t0 <- 0
 t1 <- (maxSampleTime-eval.period) / 2
 fgyRes.1 <- round(fgyResolution * (t1-t0) / maxSampleTime)
 
-parms <- list(alpha1=0.01, alpha2=0.001, gamma=1/520., mu=1/3640., beta1=0.03, beta2=0.00084, beta3=0.02, rho1=0.1, rho2=0.9, c1=1.0, c2=5.0, mig=0.05/52, z=1)
+# lam = growth rate in target population 
+parms <- list(alpha1=0.01, alpha2=0.001, gamma=1/520., mu=1/3640., lam=0.001, beta1=0.025, beta2=0.00084, beta3=0.02, rho1=0.1, rho2=0.9, c1=1.0, c2=2.0, mig=0.03/52, z=1)
 
 tfgy.1 <- make.fgy(t0, t1, births, deaths, nonDemeDynamics, x0, migrations=migrations, parms=parms, fgyResolution=fgyRes.1, integrationMethod=integrationMethod)
 
@@ -204,9 +205,9 @@ y.migrations <- c(tfgy.3[[3]], tfgy.2[[3]], tfgy.1[[3]])
 y.demeSizes <- c(tfgy.3[[4]], tfgy.2[[4]], tfgy.1[[4]])
 
 trees <- simulate.binary.dated.tree.fgy( y.times, y.births, y.migrations, y.demeSizes, sampleTimes, sampleStates, integrationMethod = integrationMethod, n.reps=nreps)
-plot(trees[[1]])
-plot(trees[[1]]$height/52.)
+
 'multiPhylo' -> class(trees)
+output.nwk <- 'test-pangea-1.nwk'
 write.tree(trees, file=output.nwk, append=FALSE)
 
 # probabilities of ancestral demes - I'm not sure this works...

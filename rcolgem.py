@@ -455,11 +455,15 @@ class Rcolgem ():
         robjects.r("names(deaths) <- demes")
 
         # dynamics of susceptible class
-        robjects.r("nonDemeDynamics <- c('-parms$mu*S0 + parms$mu*(S0+I0+J0+K0) + parms$gamma*K0 - S0*parms$c1*parms$z*(parms$beta1*I0+parms$beta2*J0+parms$beta3*K0)/(S0+I0+J0+K0) + parms$mig*(I1*I0+J1*J0)/(S0+I0+J0+K0)', "
-                   "paste(sep='', '-parms$mu*S1 + parms$mu*(S1+I1+J1+K1) + parms$gamma*K1 - S1*parms$c1*parms$z*(', p11, "
+        robjects.r("nonDemeDynamics <- c('-parms$mu*S0 + parms$lam*S0 + parms$mu*(S0+I0+J0+K0) + parms$gamma*K0 "
+                   "- S0*parms$c1*parms$z*(parms$beta1*I0+parms$beta2*J0+parms$beta3*K0)/(S0+I0+J0+K0) "
+                   "+ parms$mig*(I1*I0+J1*J0)/(S0+I0+J0+K0)', "
+                   "paste(sep='', '-parms$mu*S1 + parms$lam*S1 + parms$mu*(S1+I1+J1+K1) + parms$gamma*K1 "
+                   "- S1*parms$c1*parms$z*(', p11, "
                    "'*(parms$beta1*I1 + parms$beta2*J1 + parms$beta3*K1)/(S1+I1+J1+K1) + ', p12, "
                    "'*(parms$beta1*I2 + parms$beta2*J2 + parms$beta3*K2)/(S2+I2+J2+K2))'),"
-                   "paste(sep='', '-parms$mu*S2 + parms$mu*(S2+I2+J2+K2) + parms$gamma*K2 - S2*parms$c2*parms$z*(', p21, "
+                   "paste(sep='', '-parms$mu*S2 + pamrs$lam*S2 + parms$mu*(S2+I2+J2+K2) + parms$gamma*K2 "
+                   "- S2*parms$c2*parms$z*(', p21, "
                    "'*(parms$beta1*I1 + parms$beta2*J1 + parms$beta3*K1)/(S1+I1+J1+K1) + ', p22, "
                    "'*(parms$beta1*I2 + parms$beta2*J2 + parms$beta3*K2)/(S2+I2+J2+K2))'))")
         robjects.r("names(nonDemeDynamics) <- c('S0', 'S1', 'S2')")
@@ -468,16 +472,18 @@ class Rcolgem ():
     def simulate_pangea(self, params, tree_height, tip_heights, eval_period=5*52.):
         """
         Time scaled to weeks.
-        :param params:
-        :param eval_period:
-        :param tree_height:
+        :param params: Dictionary with model parameter settings.
+        :param eval_period: For regional simulations, the last five years.
+        :param tree_height: Should be about 40 years.
         :param tip_heights:
-        :param post:
         :return:
         """
 
-        vars = ['alpha1', 'alpha2', 'gamma', 'mu', 'beta1', 'beta2', 'beta3', 'rho1', 'rho2', 'c1', 'c2',
+        vars = ['alpha1', 'alpha2', 'lam', 'gamma', 'mu', 'beta1', 'beta2', 'beta3', 'rho1', 'rho2', 'c1', 'c2',
                 'mig', 'z']
+        if any(map(lambda v: v not in params, vars)):
+            print 'Incomplete parameter specification for PANGEA model.'
+            sys.exit()
 
         # initialize population sizes
         robjects.r("N0=%f; N1=%f; p=%f")
