@@ -488,31 +488,45 @@ class Rcolgem ():
         :return:
         """
 
-        vars = ['alpha1', 'alpha2', 'lam', 'gamma', 'mu', 'beta1', 'beta2', 'beta3', 'rho1', 'rho2', 'c1', 'c2',
-                'mig', 'z']
+        vars = [
+            'N0',  # size of source population
+            'N1',  # size of target population
+            'p',  # proportion of target population in high-risk group
+            'alpha1',  # rate of transition from acute stage
+            'alpha2',  # rate of progression to AIDS
+            'lam',  # growth rate of populations
+            'gamma',  # excess mortality rate due to infection
+            'mu',  # baseline mortality rate
+            'beta1',  # transmission rate from acute infections
+            'beta2',  # transmission rate from asymptomatic
+            'beta3',  # transmission rate from AIDS
+            'rho1',  # proportion of contacts reserved for outside group
+            'rho2',
+            'c1',  # contact rate for group 1
+            'c2',  # contact rate for group 2
+            'mig',  # migration rate
+            'z1',  # factor for adjusting transmission rates over time
+            'z2'
+        ]
         if any(map(lambda v: v not in params, vars)):
             print 'Incomplete parameter specification for PANGEA model.'
             sys.exit()
 
+        # set model parameters
+        for v in vars:
+            if v not in params:
+                return []
+            robjects.r("%s=%f" % (v, params[v]))
+        robjects.r("parms <- list(%s)" % (','.join(['%s=%s'%(v, v) for v in vars]), ))
+        robjects.r("z <- 1")
+
         # initialize population sizes
-        robjects.r("N0=%f; N1=%f; p=%f")
         robjects.r("S0=N0-1; I0=1; J0=0; K0=0")
         robjects.r("S1=N1*(1-p); I1=0; J1=0; K1=0")
         robjects.r("S2=N1*p; I2=0; J2=0; K2=0")
         robjects.r("x0 = c(I0=I0, J0=J0, K0=K0,"
                    "I1=I1, J1=J1, K1=K1,"
                    "I2=I2, J2=J2, K2=K2, S0=S0, S1=S1, S2=S2)")
-
-        # set model parameters
-        for v in vars:
-            if v not in params:
-                return []
-            if v == 'z':
-                # set to z-factor of first time interval
-                robjects.r('z=%f' % (params['z1'],))
-                continue
-            robjects.r("%s=%f" % (v, params[v]))
-        robjects.r("parms <- list(%s)" % (','.join(['%s=%s'%(v, v) for v in vars]), ))
 
         # set simulation conditions
         robjects.r("n.tips=%d" % (len(tip_heights), ))
@@ -530,7 +544,7 @@ class Rcolgem ():
         robjects.r("x1 <- tfgy.1[[5]][fgyRes.1, 2:ncol(tfgy.1[[5]])]")
         robjects.r("t2 <- maxSampleTime-eval.period")
         robjects.r("fgyRes.2 <- round(fgyResolution * (t2-t1) / maxSampleTime)")
-        robjects.r("parms$z <- %f" % (params['z2'],))
+        robjects.r("parms$z <- %f" % (params['z1'],))
         robjects.r("tfgy.2 <- make.fgy(t1, t2, births, deaths, nonDemeDynamics, x1, migrations=migrations, parms=parms,"
                    "fgyResolution=fgyRes.2, integrationMethod=integrationMethod)")
 
@@ -538,7 +552,7 @@ class Rcolgem ():
         robjects.r("x2 <- tfgy.2[[5]][fgyRes.2, 2:ncol(tfgy.2[[5]])]")
         robjects.r("t3 <- maxSampleTime")
         robjects.r("fgyRes.3 <- fgyResolution - fgyRes.1 - fgyRes.2")
-        robjects.r("parms$z <- %f" % (params['z3'],))
+        robjects.r("parms$z <- %f" % (params['z2'],))
         robjects.r("tfgy.3 <- make.fgy(t2, t3, births, deaths, nonDemeDynamics, x2, migrations=migrations, parms=parms,"
                    "fgyResolution=fgyRes.3, integrationMethod=integrationMethod)")
 
