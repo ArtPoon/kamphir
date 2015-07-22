@@ -471,7 +471,7 @@ class Rcolgem ():
                    "- S1*parms$c1*parms$z*(', p11, "
                    "'*(parms$beta1*I1 + parms$beta2*J1 + parms$beta3*K1)/(S1+I1+J1+K1) + ', p12, "
                    "'*(parms$beta1*I2 + parms$beta2*J2 + parms$beta3*K2)/(S2+I2+J2+K2))'),"
-                   "paste(sep='', '-parms$mu*S2 + pamrs$lam*S2 + parms$mu*(S2+I2+J2+K2) + parms$gamma*K2 "
+                   "paste(sep='', '-parms$mu*S2 + parms$lam*S2 + parms$mu*(S2+I2+J2+K2) + parms$gamma*K2 "
                    "- S2*parms$c2*parms$z*(', p21, "
                    "'*(parms$beta1*I1 + parms$beta2*J1 + parms$beta3*K1)/(S1+I1+J1+K1) + ', p22, "
                    "'*(parms$beta1*I2 + parms$beta2*J2 + parms$beta3*K2)/(S2+I2+J2+K2))'))")
@@ -505,20 +505,16 @@ class Rcolgem ():
             'c1',  # contact rate for group 1
             'c2',  # contact rate for group 2
             'mig',  # migration rate
-            'z1',  # factor for adjusting transmission rates over time
-            'z2'
+            'z'  # factor for adjusting transmission rates over time
         ]
-        if any(map(lambda v: v not in params, vars)):
-            print 'Incomplete parameter specification for PANGEA model.'
-            sys.exit()
 
         # set model parameters
         for v in vars:
-            if v not in params:
-                return []
+            if v == 'z':
+                continue
             robjects.r("%s=%f" % (v, params[v]))
-        robjects.r("parms <- list(%s)" % (','.join(['%s=%s'%(v, v) for v in vars]), ))
         robjects.r("z <- 1")
+        robjects.r("parms <- list(%s)" % (','.join(['%s=%s'%(v, v) for v in vars]), ))
 
         # initialize population sizes
         robjects.r("S0=N0-1; I0=1; J0=0; K0=0")
@@ -540,6 +536,7 @@ class Rcolgem ():
         robjects.r("tfgy.1 <- make.fgy(t0, t1, births, deaths, nonDemeDynamics, x0, migrations=migrations, parms=parms,"
                    "fgyResolution=fgyRes.1, integrationMethod=integrationMethod)")
 
+
         # use state of system at end of time interval to initialize next time interval
         robjects.r("x1 <- tfgy.1[[5]][fgyRes.1, 2:ncol(tfgy.1[[5]])]")
         robjects.r("t2 <- maxSampleTime-eval.period")
@@ -548,6 +545,7 @@ class Rcolgem ():
         robjects.r("tfgy.2 <- make.fgy(t1, t2, births, deaths, nonDemeDynamics, x1, migrations=migrations, parms=parms,"
                    "fgyResolution=fgyRes.2, integrationMethod=integrationMethod)")
 
+
         # solve last time interval
         robjects.r("x2 <- tfgy.2[[5]][fgyRes.2, 2:ncol(tfgy.2[[5]])]")
         robjects.r("t3 <- maxSampleTime")
@@ -555,6 +553,20 @@ class Rcolgem ():
         robjects.r("parms$z <- %f" % (params['z2'],))
         robjects.r("tfgy.3 <- make.fgy(t2, t3, births, deaths, nonDemeDynamics, x2, migrations=migrations, parms=parms,"
                    "fgyResolution=fgyRes.3, integrationMethod=integrationMethod)")
+
+        # use prevalence of respective infected classes at end of simulation to determine sample states
+        robjects.r("demes.t.end <- tfgy.3[[4]][[1]]")
+        robjects.r("sampled.demes <- which(!grepl('0$', names(demes.t.end)))")
+        if robjects.r("sum(demes.t.end[sampled.demes])")[0] < len(tip_heights):
+            # number of infected individuals at end of simulation is less than number of tips
+            return []
+
+        try:
+            robjects.r("demes.sample <- sample(rep(sampled.demes, times=round(demes.t.end[sampled.demes])), size=n.tips)")
+        except:
+            print 'demes.t.end', robjects.r("demes.t.end")
+            print 'n.tips', robjects.r('n.tips')
+            raise
 
         # sample demes based on frequencies at last time point
         robjects.r("sampleStates <- matrix(0, nrow=n.tips, ncol=length(demes))")

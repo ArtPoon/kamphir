@@ -89,7 +89,7 @@ class Kamphir (PhyloKernel):
         self.nthreads = nthreads  # number of processes for PhyloKernel
         self.gibbs = gibbs
 
-    def set_target_trees(self, path, treenum, delimiter=None, position=None):
+    def set_target_trees(self, path, treenum, delimiter=None, position=None, tscale=1.0):
         """
         Assign a Bio.Phylo Tree object to fit a model to.
         Parse tip dates from tree string in BEAST style.
@@ -112,7 +112,7 @@ class Kamphir (PhyloKernel):
 
             # record this before normalizing
             depths = tree.depths()  # distance from node to root
-            tree_height = max(depths.values())
+            tree_height = max(depths.values()) * tscale
 
             # record tip heights - always unnormalized
             tips = tree.get_terminals()
@@ -129,7 +129,7 @@ class Kamphir (PhyloKernel):
                 for tip in tips:
                     try:
                         items = tip.name.strip("'").split(delimiter)
-                        tipdate = float(items[position])
+                        tipdate = float(items[position]) * tscale
                         if tipdate > maxdate:
                             maxdate = tipdate
                     except:
@@ -141,8 +141,9 @@ class Kamphir (PhyloKernel):
 
             # record node heights (coalescence times) - note these are always unnormalized
             nodes = tree.get_nonterminals()
-            node_heights = [tree_height-depths[node] for node in nodes]
+            node_heights = [(tree_height-depths[node]*tscale) for node in nodes]
             node_heights.sort()
+
 
             # prepare tree for kernel computation
             tree.root.branch_length = 0
@@ -567,6 +568,8 @@ if __name__ == '__main__':
                         help='Index (from 0) of field in tip label containing date.')
     parser.add_argument('-treenum', type=int, default=None,
                         help='Index of tree in file to process.  Defaults to all.')
+    parser.add_argument('-tscale', type=float, default=1.0,
+                        help='Factor to adjust tip dates.')
     
     # annealing settings
     parser.add_argument('-tol0', type=float, default=0.01,
@@ -731,7 +734,7 @@ if __name__ == '__main__':
                   use_priors=args.prior)
 
     kam.set_target_trees(args.nwkfile, delimiter=args.delimiter, position=args.datefield,
-                        treenum=args.treenum)
+                        treenum=args.treenum, tscale=args.tscale)
 
     # prevent previous log files from being overwritten
     modifier = ''
