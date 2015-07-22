@@ -54,7 +54,7 @@ template = jenv.from_string(source=
          nTraj='{{ nreps|int }}'
          samplePopulationSizes="true"
          verbosity="0"
-         simulationTime="{{ t_end }}">
+         simulationTime="{{ 1.1*t_end }}">
 
         <model spec='Model' id='model'>
             <population spec='Population' id='S' populationName='S'/>
@@ -132,7 +132,7 @@ print '[%s] calling master2' % datetime.now().isoformat()
 print '[%s] calling master2' % datetime.now().isoformat()
 
 #os.system('master2 %s > /dev/null' % tmpfile)
-p = subprocess.Popen(['java', '-Xms512m', '-Xmx2048m', '-jar', jarfile, tmpfile],
+p = subprocess.Popen(['java', '-Xms1024m', '-Xmx2048m', '-jar', jarfile, tmpfile],
                      stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
 # check if outfile has expected number of lines
