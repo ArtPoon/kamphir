@@ -5,7 +5,7 @@
         "max": 1000000.0,
         "initial": 10000.0,
         "prior": "lognorm(0.5, scale=10000)",
-        "sigma": 1000.0,
+        "sigma": 500.0,
         "log": "false"
     },
     "beta": {
@@ -14,7 +14,7 @@
        "max": 10.0,
        "initial": 0.5,
        "prior": "lognorm(1.0, scale=0.01)",
-       "sigma": 0.2,
+       "sigma": 0.05,
        "log": "false"
     },
     "p": {
@@ -50,7 +50,7 @@
         "max": 10.0,
         "initial": 1.0,
         "prior": "lognorm(1.5, scale=1.0)",
-        "sigma": 0.2,
+        "sigma": 0.05,
         "log": "false"
     },
     "c2": {

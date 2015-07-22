@@ -46,13 +46,14 @@ class Kamphir (PhyloKernel):
     
     def __init__(self, settings, script, driver, simfunc,
                  ncores=1, nreps=10, nthreads=1, gibbs=False, use_priors=False,
-                 sigma_coal=1., **kwargs):
+                 sigma_coal=1., kadj=1.0, **kwargs):
         # call base class constructor
         PhyloKernel.__init__(self, **kwargs)
 
         self.use_priors = use_priors
         self.settings = deepcopy(settings)
         self.target_trees = []
+        self.kadj = kadj
 
         self.current = {}
         self.proposed = {}
@@ -292,7 +293,7 @@ class Kamphir (PhyloKernel):
             print k, ref_denom, tree_denom
             raise
 
-        kernel_score = knorm * kcoal
+        kernel_score = knorm * math.pow(kcoal, self.kadj)
         if output is None:
             return kernel_score
 
@@ -532,9 +533,9 @@ if __name__ == '__main__':
                                             'can be used to generate a tree.')
 
     # positional arguments (required)
-    parser.add_argument('model', help='Model to simulate trees with Rcolgem.  Use "*" to fit '
+    parser.add_argument('model', help='Model to simulate trees with Rcolgem.  Use "_" to fit '
                                       'a model using another program and driver script.',
-                        choices=['*', 'SI', 'SI2', 'DiffRisk', 'Stages'])
+                        choices=['_', 'SI', 'SI2', 'DiffRisk', 'Stages'])
     parser.add_argument('settings', help='JSON file containing model parameter settings.  Ignored if'
                                          'restarting from log file (-restart).')
     parser.add_argument('nwkfile', help='File containing Newick tree string.')
@@ -577,6 +578,9 @@ if __name__ == '__main__':
     parser.add_argument('-prior', action='store_true', help='Use prior distributions.')
 
     # kernel settings
+    parser.add_argument('-kadj', default=1.0, type=float,
+                        help='Adjustment factor for weighting the coalescent kernel against the'
+                             'subset tree kernel.  1.0 gives equal weight.')
     parser.add_argument('-kdecay', default=0.2, type=float,
                         help='Decay factor for tree shape kernel. Lower values penalize large subset '
                              'trees more severely.')
@@ -677,9 +681,9 @@ if __name__ == '__main__':
 
     # select model
     simfunc = None
-    if args.model == '*':
+    if args.model == '_':
         if args.script is None:
-            print 'Error: Must specify (-script) if (-model) is "*".'
+            print 'Error: Must specify (-script) if (-model) is "_".'
             pool.terminate()
             sys.exit()
         # simfunc remains set to None
@@ -709,6 +713,7 @@ if __name__ == '__main__':
                   script=args.script,
                   ncores=args.ncores,
                   nthreads=args.nthreads,
+                  kadj=args.kadj,
                   decayFactor=args.kdecay,
                   normalize=args.normalize,
                   gaussFactor=args.tau,
