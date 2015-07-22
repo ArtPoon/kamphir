@@ -1271,7 +1271,11 @@ if (s!=1) warning('Tree simulator assumes times given in equal increments')
 		Q0 <- diag(m)
 		parameters 	<- c(m, maxHeight, length(fgyParms$heights), sum(A0), as.vector(fgymat))
 		y0 <- c( as.vector( Q0), A0,  L0 ) #
-		o <- ode(y=y0, c(h0,h1), func = "dQAL", parms = parameters, dllname = "rcolgem", initfunc = "initfunc", method=integrationMethod )
+	    
+		tryCatch({
+		    o <- ode(y=y0, c(h0,h1), func = "dQAL", parms = parameters, dllname = "rcolgem", initfunc = "initfunc", method=integrationMethod )
+		}, error = function(e) { return (list())})
+
 		Q1 		<- t( matrix(  abs(o[nrow(o),2:(1 + m^2)]) , nrow=m) ) #NOTE the transpose
 		A1 <- o[nrow(o), (1 + m^2 + 1):(1 + m^2 +  m)]
 		L1 <- o[nrow(o), ncol(o)]
