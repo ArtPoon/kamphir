@@ -90,7 +90,7 @@ class Kamphir (PhyloKernel):
         self.nthreads = nthreads  # number of processes for PhyloKernel
         self.gibbs = gibbs
 
-    def set_target_trees(self, path, treenum, delimiter=None, position=None):
+    def set_target_trees(self, path, treenum, delimiter=None, position=None, tscale=1.0):
         """
         Assign a Bio.Phylo Tree object to fit a model to.
         Parse tip dates from tree string in BEAST style.
@@ -113,7 +113,7 @@ class Kamphir (PhyloKernel):
 
             # record this before normalizing
             depths = tree.depths()  # distance from node to root
-            tree_height = max(depths.values())
+            tree_height = max(depths.values()) * tscale
 
             # record tip heights - always unnormalized
             tips = tree.get_terminals()
@@ -130,7 +130,7 @@ class Kamphir (PhyloKernel):
                 for tip in tips:
                     try:
                         items = tip.name.strip("'").split(delimiter)
-                        tipdate = float(items[position])
+                        tipdate = float(items[position]) * tscale
                         if tipdate > maxdate:
                             maxdate = tipdate
                     except:
@@ -142,8 +142,9 @@ class Kamphir (PhyloKernel):
 
             # record node heights (coalescence times) - note these are always unnormalized
             nodes = tree.get_nonterminals()
-            node_heights = [tree_height-depths[node] for node in nodes]
+            node_heights = [(tree_height-depths[node]*tscale) for node in nodes]
             node_heights.sort()
+
 
             # prepare tree for kernel computation
             tree.root.branch_length = 0
@@ -419,7 +420,7 @@ class Kamphir (PhyloKernel):
 
             if len(trees) == 0:
                 # failed simulation
-                return None
+                return None, None
 
             # compute tree shape kernel
             if self.nthreads > 1:
@@ -441,10 +442,11 @@ class Kamphir (PhyloKernel):
             mean_score = sum(results)/len(results)
             retval += mean_score * ntips
 
-        return retval / total_ntips
+        return retval / total_ntips, trees[0]
 
 
-    def abc_mcmc(self, logfile, max_steps=1e5, tol0=0.01, mintol=0.0005, decay=0.0025, skip=1, first_step=0):
+    def abc_mcmc(self, logfile, treefile=None, max_steps=1e5, tol0=0.01, mintol=0.0005, decay=0.0025, skip=1,
+                 tree_skip=20, first_step=0):
         """
         Use Approximate Bayesian Computation to sample from posterior
         density over model parameter space, given one or more observed
@@ -468,7 +470,7 @@ class Kamphir (PhyloKernel):
                       'gibbs' if self.gibbs else ''))
 
         print 'calculating initial kernel score'
-        cur_score = self.evaluate()
+        cur_score, _ = self.evaluate()
         if cur_score is None:
             print 'ERROR: failed to simulate trees under initial parameter values.'
             pool.terminate()
@@ -485,7 +487,7 @@ class Kamphir (PhyloKernel):
             next_score = None
             while next_score is None:
                 self.proposal()  # update proposed values
-                next_score = self.evaluate()  # returns None if simulations fail
+                next_score, tree = self.evaluate()  # returns None if simulations fail
                 
             if next_score > 1.0 or next_score < 0.0:
                 print 'ERROR: next_score (', next_score, ') outside interval [0,1], dumping proposal and EXIT'
@@ -517,6 +519,14 @@ class Kamphir (PhyloKernel):
                 logfile.write('\t'.join(map(str, [step, cur_score, log_prior['proposal']] + [self.current[k] for k in keys])))
                 logfile.write('\n')
                 logfile.flush()
+
+            if treefile and step % tree_skip == 0:
+                tips = tree.get_terminals()
+                # tip names are blank for some reason
+                for i, tip in enumerate(tips):
+                    tip.name = str(i)
+                Phylo.write(tree, treefile, format='newick')
+                treefile.flush()
             step += 1
 
 if __name__ == '__main__':
@@ -535,7 +545,7 @@ if __name__ == '__main__':
     # positional arguments (required)
     parser.add_argument('model', help='Model to simulate trees with Rcolgem.  Use "_" to fit '
                                       'a model using another program and driver script.',
-                        choices=['_', 'SI', 'SI2', 'DiffRisk', 'Stages'])
+                        choices=['_', 'SI', 'SI2', 'DiffRisk', 'Stages', 'PANGEA'])
     parser.add_argument('settings', help='JSON file containing model parameter settings.  Ignored if'
                                          'restarting from log file (-restart).')
     parser.add_argument('nwkfile', help='File containing Newick tree string.')
@@ -559,6 +569,8 @@ if __name__ == '__main__':
                         help='Index (from 0) of field in tip label containing date.')
     parser.add_argument('-treenum', type=int, default=None,
                         help='Index of tree in file to process.  Defaults to all.')
+    parser.add_argument('-tscale', type=float, default=1.0,
+                        help='Factor to adjust tip dates.')
     
     # annealing settings
     parser.add_argument('-tol0', type=float, default=0.01,
@@ -701,6 +713,10 @@ if __name__ == '__main__':
         elif args.model == 'Stages':
             r.init_stages_model()
             simfunc = r.simulate_stages_trees
+            # TODO: this is quickly becoming cumbersome - come up with a more elegant scheme
+        elif args.model == 'PANGEA':
+            r.init_pangea()
+            simfunc = r.simulate_pangea
         else:
             print 'ERROR: Unrecognized rcolgem model type', args.model
             print 'Currently only SI, SI2, DiffRisk, and Stages are supported..'
@@ -723,7 +739,7 @@ if __name__ == '__main__':
                   use_priors=args.prior)
 
     kam.set_target_trees(args.nwkfile, delimiter=args.delimiter, position=args.datefield,
-                        treenum=args.treenum)
+                        treenum=args.treenum, tscale=args.tscale)
 
     # prevent previous log files from being overwritten
     modifier = ''
@@ -733,7 +749,9 @@ if __name__ == '__main__':
         modifier = '.%d' % tries
 
     logfile = open(args.logfile+modifier, 'w')
+    treefile = open(args.logfile.replace('.log', '.trees')+modifier, 'w')
     kam.abc_mcmc(logfile,
+                    treefile=treefile,
                     max_steps=args.maxsteps,
                     skip=args.skip,
                     tol0=args.tol0,

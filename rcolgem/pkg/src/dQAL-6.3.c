@@ -1,3 +1,4 @@
+
 /*
  * @author Erik M Volz
  * @date April 18 2014
@@ -87,12 +88,20 @@ void dQAL( int *neq, double *t, double *y, double *ydot, double *yout, int*ip)
 			dQ(k,z) = 0.;
 			for (l = 0. ; l < m; l++){
 				if (k!=l){
-					dQ(k,z) += (F(i,k,l) + G(i,k,l)) * min(1,  Q(l,z)/ Y(i,l));
-					dQ(k,z) -= (F(i,l,k) + G(i,l,k)) * min(1,  Q(k,z)/ Y(i,k));
+					if ( Q(l,z) > 0)
+					{
+						dQ(k,z) += (F(i,k,l) + G(i,k,l)) *  Q(l,z)/  max(Q(l,z), Y(i,l));
+					}
+					if (Q(k,z) > 0)
+					{
+						dQ(k,z) -= (F(i,l,k) + G(i,l,k)) *  Q(k,z)/  max(Q(k,z), Y(i,k));
+					}
 				}
 				// coalescent:
 				//~ dQ(k,z) -= (F(i,k,l)+F(i,l,k)) * a[l] * Q(k,z)/Y(i,k);
-				dQ(k,z) -= F(i,k,l) * a[l] * min(1, Q(k,z)/ Y(i,k));
+				if (Q(k,z) > 0){
+					dQ(k,z) -= F(i,k,l) * a[l] * Q(k,z)/  max(Q(k,z), Y(i,k));
+				}
 			}
 		}
 	}
@@ -103,19 +112,15 @@ void dQAL( int *neq, double *t, double *y, double *ydot, double *yout, int*ip)
 		for (l =0 ; l < m; l++){
 			if (k==l){
 				Ydenom = max( (Y(i,k)-1),(r*A(k)-1) );
-				dL += max(0,min(1,a[k])) * (  (r*A(k)-1)/Ydenom) * F(i,k,l);
+				if (Ydenom > 0)
+				{
+					dL += max(0,min(1,a[k])) * (  (r*A(k)-1)/Ydenom) * F(i,k,l);
+				}
 			} else{
 				dL += max(0,min(1,a[k])) * max(0,min(1,a[l])) * F(i,k,l);
 			}
 		}
 	}
-	//~ if (dL < 0) 
-	//~ {
-		//~ printf( "%f %f %f\n", F(i, 0, 0), F(i, 1, 0), F(i, 2, 0) ); 
-		//~ printf( "%f %f %f\n", a[0], a[1], a[2]); 
-		//~ printf( "%f %f %f\n", Y(i, 0), Y(i, 1 ), Y(i, 2) ); 
-		//~ printf("\n");
-	//~ }
 	dL = max(dL, 0);
 }
 
