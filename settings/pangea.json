@@ -48,7 +48,7 @@
        "weight": 2.0,
        "min": 0.001,
        "max": 1.0,
-       "initial": 0.02,
+       "initial": 0.015,
        "prior": "uniform(loc=0, scale=1.0)",
        "sigma": 0.0005,
        "log": "false"
@@ -66,7 +66,7 @@
        "weight": 1.0,
        "min": 0,
        "max": 5.0,
-       "initial": 0.1,
+       "initial": 0.01,
        "prior": "lognorm(1.0, scale=0.01)",
        "sigma": 0.01,
        "log": "false"
@@ -149,7 +149,7 @@
        "max": 100.0,
        "initial": 1.0,
        "prior": "lognorm(3.0, scale=1.0)",
-       "sigma": 0.01,
+       "sigma": 0.05,
        "log": "false"
    },
    "z2": {
@@ -158,7 +158,7 @@
        "max": 100.0,
        "initial": 1.0,
        "prior": "lognorm(3.0, scale=1.0)",
-       "sigma": 0.01,
+       "sigma": 0.05,
        "log": "false"
    }
 }
