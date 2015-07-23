@@ -53,7 +53,7 @@ void dQAL( int *neq, double *t, double *y, double *ydot, double *yout, int*ip)
 {
 	// time index
 	//~ int i =  (int)min( 1+(int)( hres * (*t) / treeT ), hres);
-	int i =  (int)min( (int)( hres * (*t) / treeT ), hres-1);
+	int i =  (int)max(min( (int)( hres * (*t) / treeT ), hres-1), 0);
 	int k,l,z,w;
 	
 	double a[m]; //normalized nlft 
