@@ -3,6 +3,8 @@
 Estimate epidemic model parameters by comparing simulations to "observed" phylogeny.
 """
 import sys
+sys.setrecursionlimit(10000)
+
 import os
 import multiprocessing as mp
 from phyloK2 import PhyloKernel
@@ -15,6 +17,7 @@ import time
 from cStringIO import StringIO
 import math
 from scipy import stats
+
 
 FNULL = open(os.devnull, 'w')
 
