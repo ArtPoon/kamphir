@@ -4,7 +4,7 @@
        "min": 1000.0,
        "max": 1000000.0,
        "initial": 100000.0,
-       "prior": "lognorm(0.5, scale=10000)",
+       "prior": "lognorm(1.0, scale=100000)",
        "sigma": 1000.0,
        "log": "false"
    },
@@ -13,7 +13,7 @@
        "min": 1000.0,
        "max": 100000.0,
        "initial": 80000.0,
-       "prior": "",
+       "prior": "lognorm(0.5, scale=80000)",
        "sigma": 1000.0,
        "log": "false"
    },
@@ -22,7 +22,7 @@
        "min": 0.0,
        "max": 1.0,
        "initial": 0.05,
-       "prior": "",
+       "prior": "beta(1,1.5)",
        "sigma": 0.01,
        "log": "false"
    },
@@ -148,7 +148,7 @@
        "min": 0.01,
        "max": 100.0,
        "initial": 1.0,
-       "prior": "lognorm(3.0, scale=1.0)",
+       "prior": "lognorm(0.5, scale=1.0)",
        "sigma": 0.05,
        "log": "false"
    },
@@ -157,7 +157,7 @@
        "min": 0.01,
        "max": 100.0,
        "initial": 1.0,
-       "prior": "lognorm(3.0, scale=1.0)",
+       "prior": "lognorm(0.5, scale=1.0)",
        "sigma": 0.05,
        "log": "false"
    }
