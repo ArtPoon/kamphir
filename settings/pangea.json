@@ -3,9 +3,9 @@
        "weight": 2.0,
        "min": 1000.0,
        "max": 1000000.0,
-       "initial": 10000.0,
+       "initial": 100000.0,
        "prior": "lognorm(0.5, scale=10000)",
-       "sigma": 500.0,
+       "sigma": 1000.0,
        "log": "false"
    },
    "N1": {
@@ -14,7 +14,7 @@
        "max": 100000.0,
        "initial": 80000.0,
        "prior": "",
-       "sigma": 500.0,
+       "sigma": 1000.0,
        "log": "false"
    },
    "p": {
@@ -68,7 +68,7 @@
        "max": 5.0,
        "initial": 0.01,
        "prior": "lognorm(1.0, scale=0.01)",
-       "sigma": 0.01,
+       "sigma": 0.002,
        "log": "false"
    },
    "lam": {
@@ -131,7 +131,7 @@
        "max": 100.0,
        "initial": 2.0,
        "prior": "lognorm(1.0, scale=2.0)",
-       "sigma": 0.002,
+       "sigma": 0.01,
        "log": "false"
    },
     "mig": {

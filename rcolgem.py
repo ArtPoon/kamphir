@@ -415,13 +415,13 @@ class Rcolgem ():
         robjects.r("p22 <- '((1-parms$rho2) * parms$c2*(S2+I2+J2+K2)*(1-parms$rho2) / (parms$c1*(S1+I1+J1+K1)*(1-parms$rho1) + parms$c2*(S2+I2+J2+K2)*(1-parms$rho2)))'")
 
         # birth rates
-        robjects.r("births <- rbind(c('parms$z*parms$beta1*parms$c1*I0/(S0+I0+J0+K0)*S0', '0', '0', "
+        robjects.r("births <- rbind(c('parms$beta1*parms$c1*I0/(S0+I0+J0+K0)*S0', '0', '0', "
                    "'0', '0', '0',"
                    "'0', '0', '0'),"
-                   "c('parms$z*parms$beta2*parms$c1*J0/(S0+I0+J0+K0)*S0', '0', '0',"
+                   "c('parms$beta2*parms$c1*J0/(S0+I0+J0+K0)*S0', '0', '0',"
                    "'0', '0', '0',"
                    "'0', '0', '0'),"
-                   "c('parms$z*parms$beta3*parms$c1*K0/(S0+I0+J0+K0)*S0', '0', '0',"
+                   "c('parms$beta3*parms$c1*K0/(S0+I0+J0+K0)*S0', '0', '0',"
                    "'0', '0', '0',"
                    "'0', '0', '0'),"
                    "c('0', '0', '0',"
