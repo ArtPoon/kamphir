@@ -533,8 +533,11 @@ class Rcolgem ():
         # solve ODE system for first time interval
         robjects.r("t0 <- 0; t1 <- (maxSampleTime-eval.period) / 2")
         robjects.r("fgyRes.1 <- round(fgyResolution * (t1-t0) / maxSampleTime)")
-        robjects.r("tfgy.1 <- make.fgy(t0, t1, births, deaths, nonDemeDynamics, x0, migrations=migrations, parms=parms,"
-                   "fgyResolution=fgyRes.1, integrationMethod=integrationMethod)")
+        try:
+            robjects.r("tfgy.1 <- make.fgy(t0, t1, births, deaths, nonDemeDynamics, x0, migrations=migrations, parms=parms,"
+                       "fgyResolution=fgyRes.1, integrationMethod=integrationMethod)")
+        except:
+            return []
 
 
         # use state of system at end of time interval to initialize next time interval
@@ -542,8 +545,11 @@ class Rcolgem ():
         robjects.r("t2 <- maxSampleTime-eval.period")
         robjects.r("fgyRes.2 <- round(fgyResolution * (t2-t1) / maxSampleTime)")
         robjects.r("parms$z <- %f" % (params['z1'],))
-        robjects.r("tfgy.2 <- make.fgy(t1, t2, births, deaths, nonDemeDynamics, x1, migrations=migrations, parms=parms,"
-                   "fgyResolution=fgyRes.2, integrationMethod=integrationMethod)")
+        try:
+            robjects.r("tfgy.2 <- make.fgy(t1, t2, births, deaths, nonDemeDynamics, x1, migrations=migrations, parms=parms,"
+                       "fgyResolution=fgyRes.2, integrationMethod=integrationMethod)")
+        except:
+            return []
 
 
         # solve last time interval
@@ -551,8 +557,11 @@ class Rcolgem ():
         robjects.r("t3 <- maxSampleTime")
         robjects.r("fgyRes.3 <- fgyResolution - fgyRes.1 - fgyRes.2")
         robjects.r("parms$z <- %f" % (params['z2'],))
-        robjects.r("tfgy.3 <- make.fgy(t2, t3, births, deaths, nonDemeDynamics, x2, migrations=migrations, parms=parms,"
-                   "fgyResolution=fgyRes.3, integrationMethod=integrationMethod)")
+        try:
+            robjects.r("tfgy.3 <- make.fgy(t2, t3, births, deaths, nonDemeDynamics, x2, migrations=migrations, parms=parms,"
+                       "fgyResolution=fgyRes.3, integrationMethod=integrationMethod)")
+        except:
+            return []
 
         # use prevalence of respective infected classes at end of simulation to determine sample states
         robjects.r("demes.t.end <- tfgy.3[[4]][[1]]")
