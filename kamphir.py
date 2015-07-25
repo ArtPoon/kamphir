@@ -709,11 +709,7 @@ if __name__ == '__main__':
             sys.exit()
         # simfunc remains set to None
     else:
-        if args.model == "PANGEA":
-            integration_method = "adams"
-        else:
-            integration_method = "rk4"
-        r = rcolgem.Rcolgem(ncores=args.ncores, nreps=args.nreps, seed=args.seed, integration_method=integration_method)
+        r = rcolgem.Rcolgem(ncores=args.ncores, nreps=args.nreps, seed=args.seed)
         if args.model == 'SI':
             r.init_SI_model()
             simfunc = r.simulate_SI_trees
