@@ -65,7 +65,7 @@ class Kamphir (PhyloKernel):
             self.current.update({k: v['initial']})
             self.proposed.update({k: v['initial']})
             if self.use_priors:
-                frozen_dist = eval('stats.'+v['prior'])
+                frozen_dist = 'stats.'+v['prior']
                 self.priors.update({k: frozen_dist})
 
         # locations of files
@@ -238,8 +238,8 @@ class Kamphir (PhyloKernel):
 
         for key in self.current.iterkeys():
             try:
-                retval['current'] += math.log(self.priors[key].pdf(self.current[key]))
-                retval['proposal'] += math.log(self.priors[key].pdf(self.proposed[key]))
+                retval['current'] += math.log(eval(self.priors[key]).pdf(self.current[key]))
+                retval['proposal'] += math.log(eval(self.priors[key]).pdf(self.proposed[key]))
             except:
                 print self.current
                 print self.proposed
@@ -308,7 +308,6 @@ class Kamphir (PhyloKernel):
             return kernel_score
 
         output.put(kernel_score)  # multiprocessing
-
 
     def simulate_internal(self, tree_height, tip_heights):
         """
