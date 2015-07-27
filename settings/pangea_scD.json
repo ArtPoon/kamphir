@@ -1,0 +1,164 @@
+{
+   "N0": {
+       "weight": 2.0,
+       "min": 1000.0,
+       "max": 1000000.0,
+       "initial": 100000.0,
+       "prior": "lognorm(1.0, scale=100000)",
+       "sigma": 1000.0,
+       "log": "false"
+   },
+   "N1": {
+       "weight": 1.0,
+       "min": 1000.0,
+       "max": 100000.0,
+       "initial": 80000.0,
+       "prior": "lognorm(0.5, scale=80000)",
+       "sigma": 1000.0,
+       "log": "false"
+   },
+   "p": {
+       "weight": 1.0,
+       "min": 0.0,
+       "max": 1.0,
+       "initial": 0.05,
+       "prior": "beta(1,1.5)",
+       "sigma": 0.01,
+       "log": "false"
+   },
+   "beta1": {
+       "weight": 2.0,
+       "min": 0.001,
+       "max": 0.1,
+       "initial": 0.02,
+       "prior": "uniform(loc=0, scale=1.0)",
+       "sigma": 0.0005,
+       "log": "false"
+   },
+   "beta2": {
+       "weight": 2.0,
+       "min": 0.0,
+       "max": 0.02,
+       "initial": 0.001,
+       "prior": "uniform(loc=0, scale=1.0)",
+       "sigma": 0.0002,
+       "log": "false"
+   },
+   "beta3": {
+       "weight": 2.0,
+       "min": 0.001,
+       "max": 1.0,
+       "initial": 0.015,
+       "prior": "uniform(loc=0, scale=1.0)",
+       "sigma": 0.0005,
+       "log": "false"
+   },
+    "alpha1": {
+       "weight": 1.0,
+       "min": 0.0,
+       "max": 1.0,
+       "initial": 0.0833,
+       "prior": "lognorm(1.0, scale=0.01)",
+       "sigma": 0.0,
+       "log": "false"
+   },
+    "alpha2": {
+       "weight": 1.0,
+       "min": 0,
+       "max": 5.0,
+       "initial": 0.01,
+       "prior": "lognorm(1.0, scale=0.01)",
+       "sigma": 0.002,
+       "log": "false"
+   },
+   "lam": {
+       "weight": 1.0,
+       "min": 0.0,
+       "max": 0.002,
+       "initial": 0.0004807692,
+       "prior": "lognorm(0.5, scale=0.00048)",
+       "sigma": 0.00002,
+       "log": "false"
+   },
+   "gamma": {
+       "weight": 1.0,
+       "min": 0.0001,
+       "max": 0.01,
+       "initial": 0.001923077,
+       "prior": "lognorm(1.0, scale=0.00192)",
+       "sigma": 0.0001,
+       "log": "false"
+   },
+   "mu": {
+       "weight": 1.0,
+       "min": 0.00001,
+       "max": 0.001,
+       "initial": 0.0002747253,
+       "prior": "lognorm(1.0, scale=0.000275)",
+       "sigma": 0.00001,
+       "log": "false"
+   },
+    "rho1": {
+       "weight": 1.0,
+       "min": 0,
+       "max": 1.0,
+       "initial": 0.1,
+       "prior": "beta(1,2)",
+       "sigma": 0.005,
+       "log": "false"
+   },
+   "rho2": {
+       "weight": 1.0,
+       "min": 0,
+       "max": 1.0,
+       "initial": 0.9,
+       "prior": "beta(2,1)",
+       "sigma": 0.005,
+       "log": "false"
+   },
+   "c1": {
+       "weight": 1.0,
+       "min": 0.01,
+       "max": 100.0,
+       "initial": 1.0,
+       "prior": "lognorm(1.0, scale=1.0)",
+       "sigma": 0.01,
+       "log": "false"
+   },
+   "c2": {
+       "weight": 1.0,
+       "min": 0.01,
+       "max": 100.0,
+       "initial": 2.0,
+       "prior": "lognorm(1.0, scale=2.0)",
+       "sigma": 0.01,
+       "log": "false"
+   },
+    "mig": {
+       "weight": 1.0,
+       "min": 0.0,
+       "max": 0.1,
+       "initial": 0.0005,
+       "prior": "lognorm(3.0, scale=0.001)",
+       "sigma": 0.00005,
+       "log": "false"
+   },
+   "z1": {
+       "weight": 1.0,
+       "min": 0.40,
+       "max": 0.60,
+       "initial": 0.50,
+       "prior": "uniform(0.50, scale=0.2)",
+       "sigma": 0.05,
+       "log": "false"
+   },
+   "z2": {
+       "weight": 1.0,
+       "min": 0.13,
+       "max": 0.33,
+       "initial": 0.23,
+       "prior": "uniform(0.23, scale=0.2)",
+       "sigma": 0.05,
+       "log": "false"
+   }
+}
