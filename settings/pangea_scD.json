@@ -145,20 +145,20 @@
    },
    "z1": {
        "weight": 1.0,
-       "min": 0.40,
-       "max": 0.60,
+       "min": 0.01,
+       "max": 10.0,
        "initial": 0.50,
-       "prior": "uniform(0.50, scale=0.2)",
-       "sigma": 0.05,
+       "prior": "lognorm(0.2, scale=0.5)",
+       "sigma": 0.025,
        "log": "false"
    },
    "z2": {
        "weight": 1.0,
-       "min": 0.13,
-       "max": 0.33,
-       "initial": 0.23,
-       "prior": "uniform(0.23, scale=0.2)",
-       "sigma": 0.05,
+       "min": 0.01,
+       "max": 10.0,
+       "initial": 0.80,
+       "prior": "lognorm(0.2, scale=0.225)",
+       "sigma": 0.025,
        "log": "false"
    }
 }

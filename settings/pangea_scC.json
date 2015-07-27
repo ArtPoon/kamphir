@@ -147,18 +147,18 @@
        "weight": 1.0,
        "min": 0.52,
        "max": 0.72,
-       "initial": 0.62,
-       "prior": "uniform(0.52, scale=0.2)",
-       "sigma": 0.05,
+       "initial": 0.625,
+       "prior": "lognorm(0.2, scale=0.625)",
+       "sigma": 0.025,
        "log": "false"
    },
    "z2": {
        "weight": 1.0,
-       "min": 0.26,
-       "max": 0.36,
-       "initial": 0.16,
-       "prior": "uniform(0.38, scale=0.2)",
-       "sigma": 0.05,
+       "min": 0.01,
+       "max": 1.0,
+       "initial": 0.8,
+       "prior": "lognorm(0.2, scale=0.163)",
+       "sigma": 0.025,
        "log": "false"
    }
 }
