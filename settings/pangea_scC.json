@@ -122,7 +122,7 @@
        "max": 100.0,
        "initial": 1.0,
        "prior": "lognorm(1.0, scale=1.0)",
-       "sigma": 0.01,
+       "sigma": 0.1,
        "log": "false"
    },
    "c2": {
@@ -131,7 +131,7 @@
        "max": 100.0,
        "initial": 2.0,
        "prior": "lognorm(1.0, scale=2.0)",
-       "sigma": 0.01,
+       "sigma": 0.1,
        "log": "false"
    },
     "mig": {

@@ -468,14 +468,21 @@ class Kamphir (PhyloKernel):
         keys = self.current.keys()
         keys.sort()
 
-        logfile.write('# Kamphir log\n')
-        logfile.write('# start time: %s\n' % time.ctime())
-        logfile.write('# input file: %s\n' % self.path_to_tree)
-        logfile.write('# annealing settings: tol0=%f, mintol=%f, decay=%f\n' % (tol0, mintol, decay))
-        logfile.write('# MCMC settings: %s\n' % json.dumps(self.settings))
-        logfile.write('# kernel settings: decay=%f normalize=%s tau=%f %s\n' % (
-                      self.decayFactor, self.normalize, self.gaussFactor,
-                      'gibbs' if self.gibbs else ''))
+        if first_step == 0:
+            # new log file - write new header lines
+            logfile.write('# Kamphir log\n')
+            logfile.write('# start time: %s\n' % time.ctime())
+            logfile.write('# input file: %s\n' % self.path_to_tree)
+            logfile.write('# annealing settings: tol0=%f, mintol=%f, decay=%f\n' % (tol0, mintol, decay))
+            logfile.write('# MCMC settings: %s\n' % json.dumps(self.settings))
+            logfile.write('# kernel settings: decay=%f normalize=%s tau=%f %s\n' % (
+                          self.decayFactor, self.normalize, self.gaussFactor,
+                          'gibbs' if self.gibbs else ''))
+            # write column labels
+            logfile.write('\t'.join(['state', 'score', 'prior'] + keys))
+            logfile.write('\n')
+            logfile.flush()
+
 
         print 'calculating initial kernel score'
         cur_score, _ = self.evaluate()
@@ -485,10 +492,7 @@ class Kamphir (PhyloKernel):
             sys.exit()
         print cur_score
 
-        step = first_step  # in case of restarting chain
-        logfile.write('\t'.join(['state', 'score', 'prior'] + keys))
-        logfile.write('\n')
-        logfile.flush()
+        step = (first_step+1) if (first_step > 0) else 0  # in case of restarting chain
 
         # TODO: generalize screen and file log parameters
         while step < max_steps:
@@ -555,7 +559,7 @@ if __name__ == '__main__':
                                       'a model using another program and driver script.',
                         choices=['_', 'SI', 'SI2', 'DiffRisk', 'Stages', 'PANGEA'])
     parser.add_argument('settings', help='JSON file containing model parameter settings.  Ignored if'
-                                         'restarting from log file (-restart).')
+                                         'restarting from log file (-restart); enter an underscore "_".')
     parser.add_argument('nwkfile', help='File containing Newick tree string.')
     parser.add_argument('logfile', help='File to log ABC-MCMC traces.')
 
@@ -634,6 +638,7 @@ if __name__ == '__main__':
     pool = mp.Pool(processes=args.nthreads)
 
     # recover from log file if requested
+    state = 0  # default
     if args.restart:
         logfile = open(args.restart, 'rU')
         header = None
@@ -673,22 +678,25 @@ if __name__ == '__main__':
 
         logfile.close()
 
+        # reopen logfile for appending new lines
+        logfile = open(args.restart, 'a')
+        treefile = open(args.restart.replace('.log', '.trees'), 'a')
+
         # reset initial values in settings JSON
         state = 0
         for i, key in enumerate(header):
-            value = items[i]
+            value = items[i]  # items holds last line in log
             if key in settings:
                 settings[key]['initial'] = float(value)
             if key == 'state':
-                state = int(value)
+                state = int(value)  # last state index
 
         # adjust tolerance parameters for state
         args.mintol = mintol
         args.tol0 = (tol0 - mintol) * math.exp(-1. * decay * state) + mintol
         args.toldecay = decay
 
-
-    else:
+    else:  # not restarting from old log
         if args.settings is None:
             print 'ERROR: settings is required if not restarting from log file'
             pool.terminate()
@@ -698,6 +706,19 @@ if __name__ == '__main__':
         handle = open(args.settings, 'rU')
         settings = json.loads(handle.read())
         handle.close()
+
+        # set up logfile and tree file
+
+        # prevent previous log files from being overwritten
+        modifier = ''
+        tries = 0
+        while os.path.exists(args.logfile+modifier) and not args.overwrite:
+            tries += 1
+            modifier = '.%d' % tries
+
+        logfile = open(args.logfile+modifier, 'w')
+        treefile = open(args.logfile.replace('.log', '.trees')+modifier, 'w')
+
 
     # select model
     simfunc = None
@@ -749,20 +770,12 @@ if __name__ == '__main__':
     kam.set_target_trees(args.nwkfile, delimiter=args.delimiter, position=args.datefield,
                         treenum=args.treenum, tscale=args.tscale)
 
-    # prevent previous log files from being overwritten
-    modifier = ''
-    tries = 0
-    while os.path.exists(args.logfile+modifier) and not args.overwrite:
-        tries += 1
-        modifier = '.%d' % tries
-
-    logfile = open(args.logfile+modifier, 'w')
-    treefile = open(args.logfile.replace('.log', '.trees')+modifier, 'w')
     kam.abc_mcmc(logfile,
                     treefile=treefile,
                     max_steps=args.maxsteps,
                     skip=args.skip,
                     tol0=args.tol0,
                     mintol=args.mintol,
-                    decay=args.toldecay)
+                    decay=args.toldecay,
+                    first_step=state)
     logfile.close()
