@@ -537,6 +537,7 @@ class Rcolgem ():
             robjects.r("tfgy.1 <- make.fgy(t0, t1, births, deaths, nonDemeDynamics, x0, migrations=migrations, parms=parms,"
                        "fgyResolution=fgyRes.1, integrationMethod=integrationMethod)")
         except:
+            sys.stderr.write("Failed to solve first ODE system\n")
             return []
 
 
@@ -549,6 +550,7 @@ class Rcolgem ():
             robjects.r("tfgy.2 <- make.fgy(t1, t2, births, deaths, nonDemeDynamics, x1, migrations=migrations, parms=parms,"
                        "fgyResolution=fgyRes.2, integrationMethod=integrationMethod)")
         except:
+            sys.stderr.write("Failed to solve second ODE system\n")
             return []
 
 
@@ -561,6 +563,7 @@ class Rcolgem ():
             robjects.r("tfgy.3 <- make.fgy(t2, t3, births, deaths, nonDemeDynamics, x2, migrations=migrations, parms=parms,"
                        "fgyResolution=fgyRes.3, integrationMethod=integrationMethod)")
         except:
+            sys.stderr.write("Failed to solve third ODE system\n")
             return []
 
         # use prevalence of respective infected classes at end of simulation to determine sample states
@@ -568,6 +571,7 @@ class Rcolgem ():
         robjects.r("sampled.demes <- which(!grepl('0$', names(demes.t.end)))")
         if robjects.r("sum(demes.t.end[sampled.demes])")[0] < len(tip_heights):
             # number of infected individuals at end of simulation is less than number of tips
+            sys.stderr.write("At end of simulation, {} individuals infected, but {} tips in tree\n".format(robjects.r("sum(demes.t.end[sampled.demes])")[0], len(tip_heights)))
             return []
 
         try:
@@ -594,6 +598,7 @@ class Rcolgem ():
             robjects.r("trees <- simulate.binary.dated.tree.fgy( y.times, y.births, y.migrations, y.demeSizes, sampleTimes,"
                        " sampleStates, integrationMethod = integrationMethod, n.reps=nreps)")
         except:
+            sys.stderr.write("Failed to simulate trees\n")
             return []
 
         # convert R objects into Python strings in Newick format
@@ -601,6 +606,7 @@ class Rcolgem ():
         try:
             retval = robjects.r("lapply(trees, write.tree)")
         except:
+            sys.stderr.write("Failed to write trees\n")
             # error converting trees
             return []
 
