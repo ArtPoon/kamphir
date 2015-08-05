@@ -1,11 +1,20 @@
 #!/bin/bash
 
+<<<<<<< HEAD
 export R_HOME="/usr/local/lib64/R"
 export LD_LIBRARY_PATH=$R_HOME/lib:$LD_LIBRARY_PATH
 
 SCENARIO=$1
 TREE_FILE=/home/rmcclosk/pangea/data/February2015/Regional/hyphy/root2tip/150129_PANGEAsim_Regional_FirstObj_sc${SCENARIO}_SIMULATED_all.nwk
 SETTINGS_FILE=/home/rmcclosk/kamphir/settings/pangea_sc${SCENARIO}.json
+=======
+export R_HOME="/usr/local/lib/R"
+export LD_LIBRARY_PATH=$R_HOME/lib:$LD_LIBRARY_PATH
+
+SCENARIO=$1
+TREE_FILE=/home/rmcclosk/Documents/pangea/data/February2015/Regional/hyphy/root2tip/150129_PANGEAsim_Regional_FirstObj_sc${SCENARIO}_SIMULATED_all.nwk
+SETTINGS_FILE=/home/rmcclosk/Documents/kamphir/settings/pangea_sc${SCENARIO}.json
+>>>>>>> a34445f7503d49eed68fc708c18efb8b019f84d9
 LOG_FILE=sc${SCENARIO}-final.log
 KAMPHIR_ARGS="-delimiter _ -ncores 5 -nthreads 5 -nreps 5 -tscale 0.142857 -tol0 0.03 -mintol 0.01 -prior"
 

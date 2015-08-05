@@ -1,11 +1,19 @@
 #!/bin/bash
 
+<<<<<<< HEAD
 export R_HOME="/usr/local/lib64/R"
 export LD_LIBRARY_PATH=$R_HOME/lib:$LD_LIBRARY_PATH
 
 VILLAGE=$1
 TREE_FILE=/home/rmcclosk/pangea/data/February2015/Village/newick/Vill_${VILLAGE}_Feb2015_5yr.nwk
 SETTINGS_FILE=/home/rmcclosk/pangea/settings/pangea_V${VILLAGE}.json
+=======
+export R_HOME="/usr/local/lib/R"
+
+VILLAGE=$1
+TREE_FILE=/home/rmcclosk/Documents/pangea/data/February2015/Village/newick/Vill_${VILLAGE}_Feb2015_5yr.nwk
+SETTINGS_FILE=/home/rmcclosk/Documents/pangea/settings/pangea_V${VILLAGE}.json
+>>>>>>> a34445f7503d49eed68fc708c18efb8b019f84d9
 LOG_FILE=V${VILLAGE}.log
 KAMPHIR_ARGS="-delimiter _ -ncores 5 -nthreads 5 -nreps 5 -tscale 52.0 -tol0 0.03 -mintol 0.01 -prior"
 
@@ -24,4 +32,9 @@ while ((1)); do
         rm ${LAST_LOG}
         rm $(echo ${LAST_LOG} | sed s/log/trees/)
     fi
+<<<<<<< HEAD
+=======
+
+    break
+>>>>>>> a34445f7503d49eed68fc708c18efb8b019f84d9
 done
