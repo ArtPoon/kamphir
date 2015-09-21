@@ -1,5 +1,5 @@
 import sys
-from rpy2.rinterface import set_readconsole
+from rpy2.rinterface import set_readconsole, RRuntimeError
 set_readconsole(None)
 
 import rpy2.robjects as robjects  # R is instantiated upon load module
@@ -612,3 +612,70 @@ class Rcolgem ():
 
         trees = map(lambda x: str(x).split()[-1].strip('" '), retval)
         return trees
+
+    def init_model_from_file(self, file_name, params):
+        """Initialize a model by reading from an R script.
+
+        The script must define the variables 'demes', 'births', 'deaths',
+        'migrations', and 'nonDemeDynamics'. It also must define a function
+        x0(ics) which makes the initial conditions from a vector of population
+        sizes.  It's assumed that all initial population sizes start with the
+        letter "N".
+        """
+        buf = ""
+        with open(file_name) as f:
+            for line in f:
+                buf += line
+                try:
+                    robjects.r(buf)
+                    buf = ""
+                except ValueError:
+                    pass
+
+        param_names = [x for x in params.keys() if not x.startswith("N")]
+        robjects.r("model <- build.demographic.process(births, nonDemeDynamics," +
+                   "migrations = migrations, deaths = deaths," +
+                   "parameterNames = c('{}'), ".format("', '".join(param_names)) +
+                   "rcpp = TRUE, sde = TRUE)")
+
+    def simulate_tree_from_file(self, params, tree_height, tip_heights):
+        """Simulate a tree based on a model which was initialized from a file."""
+
+        ics = [x for x in params.items() if x[0].startswith("N")]
+        robjects.r("ics <- c({})".format(", ".join("{}={}".format(k, v) for k, v in ics)))
+
+        model_params = [x for x in params.items() if not x[0].startswith("N")]
+        robjects.r("params <- c({})".format(", ".join("{}={}".format(k, v) for k, v in model_params)))
+        robjects.r("n.tips <- {}".format(len(tip_heights)))
+        robjects.r("tip.heights <- c({})".format(','.join(map(str, tip_heights))))
+        robjects.r("t_end <- {}".format(tree_height))
+        try:
+            robjects.r("tfgy <- model(params, x0(ics), 0, t_end)")
+        except RRuntimeError:
+            sys.stderr.write("Numerical ODE solution failed\n")
+            return []
+
+        robjects.r("demes.t.end <- tfgy[[4]][[1]]")
+
+        final_popsize = int(robjects.r("sum(demes.t.end)")[0])
+        if final_popsize < len(tip_heights):
+            sys.stderr.write("Simulation ended with {} / {} individuals\n".format(final_popsize, len(tip_heights)))
+            return []
+
+        robjects.r("demes.sample <- sample(rep(1:length(demes), times=round(demes.t.end)), size=n.tips)")
+        robjects.r("sampleStates <- matrix(0, nrow=n.tips, ncol=length(demes))")
+        robjects.r("colnames(sampleStates) <- demes")
+        robjects.r("for (i in 1:n.tips) { sampleStates[i, demes.sample[i]] <- 1 }")
+        robjects.r("rownames(sampleStates) <- paste(1:n.tips, demes.sample, sep='_')")
+        robjects.r("sampleTimes <- t_end - tip.heights")
+        robjects.r("sampleStates <- matrix(1, nrow=n.tips, ncol=length(demes))")
+        robjects.r("colnames(sampleStates) <- demes")
+        robjects.r("rownames(sampleStates) <- 1:n.tips")
+
+        try:
+            robjects.r("tree <- sim.co.tree(params, model, x0(ics), 0, sampleTimes, sampleStates)")
+        except RRuntimeError:
+            sys.stderr.write("Tree simulation failed\n")
+            return []
+
+        return robjects.r("write.tree(tree)")

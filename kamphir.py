@@ -566,6 +566,7 @@ if __name__ == '__main__':
     # non-Rcolgem methods
     parser.add_argument('-script', default=None,
                         help='Driver script implementing model.  See examples in /drivers folder.')
+    parser.add_argument('-Rcode', help='R code describing model.')
     parser.add_argument('-driver', choices=['Rscript', 'python'],
                         help='Driver for executing script.')
 
@@ -723,8 +724,14 @@ if __name__ == '__main__':
     # select model
     simfunc = None
     if args.model == '_':
-        if args.script is None:
-            print 'Error: Must specify (-script) if (-model) is "_".'
+        if args.script is not None:
+            sumfunc = None
+        elif args.Rcode is not None:
+            r = rcolgem.Rcolgem(ncores=args.ncores, nreps=args.nreps, seed=args.seed)
+            r.init_model_from_file(args.Rcode, settings)
+            simfunc = r.simulate_tree_from_file
+        else:
+            print 'Error: Must specify (-script) or (-Rcode) if (-model) is "_".'
             pool.terminate()
             sys.exit()
         # simfunc remains set to None
