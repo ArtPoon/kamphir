@@ -1,6 +1,6 @@
 This repository contains my first attempt to apply approximate Bayesian computation (ABC) to phylodynamic inference using a kernel method to compare the shapes of trees. 
-We are presently working on making a stable implementation of these concepts [here](github.com/PoonLab/Kaphi).
-This current work replaces the MCMC sampling method with sequential Monte Carlo (SMC), with which we have obtained more consistent results (see [netabc](github.com/rmcclosk/netabc)).
+We are presently working on making a stable implementation of these concepts [here](http://github.com/PoonLab/Kaphi).
+This current work replaces the MCMC sampling method with sequential Monte Carlo (SMC), with which we have obtained more consistent results (see [netabc](http://github.com/rmcclosk/netabc)).
 
 ---
 
