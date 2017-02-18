@@ -1,7 +1,8 @@
-kamphir
-=======
+This repository contains my first attempt to apply approximate Bayesian computation (ABC) to phylodynamic inference using a kernel method to compare the shapes of trees. 
+We are presently working on making a stable implementation of these concepts [here](github.com/PoonLab/Kaphi).
+This current work replaces the MCMC sampling method with sequential Monte Carlo (SMC), with which we have obtained more consistent results (see [netabc](github.com/rmcclosk/netabc)).
 
-**KAMPHIR** stands for Kernel-assisted ABC-MCMC for PHylodynamic InfeRence.
+---
 
 Approximate Bayesian computing (ABC) attempts to fit a model to an observed data set by simulating additional data sets under different parameter settings of the model until the simulations resemble the observations.
 ABC-MCMC is an implementation of ABC using Markov chain Monte Carlo sampling where new parameter values are drawn from a proposal distribution centered at the current state, and used to update the model if the resulting simulations meet some goodness-of-fit criterion. 
