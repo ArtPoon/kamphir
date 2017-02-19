@@ -1,17 +1,14 @@
-This repository contains my first attempt to apply approximate Bayesian computation (ABC) to phylodynamic inference using a kernel method to compare the shapes of trees. 
+This repository comprises scripts and data that were used in a recent paper:
+
+Poon AF. Phylodynamic inference with kernel ABC and its application to HIV epidemiology. Molecular biology and evolution. 2015 May 25:msv123.
+
+to apply approximate Bayesian computation (ABC) to phylodynamic inference using a kernel method to compare the shapes of trees.
+
 We are presently working on making a stable implementation of these concepts [here](http://github.com/PoonLab/Kaphi).
-This current work replaces the MCMC sampling method with sequential Monte Carlo (SMC), with which we have obtained more consistent results (see [netabc](http://github.com/rmcclosk/netabc)).
+This current work replaces the MCMC sampling method with sequential Monte Carlo (SMC), with which we have obtained more consistent results (see [netabc](http://github.com/rmcclosk/netabc)) and published here:
 
----
+McCloskey RM, Liang RH, Poon AF. Reconstructing contact network parameters from viral phylogenies. Virus evolution. 2016 Jul 1;2(2):vew029.
 
-Approximate Bayesian computing (ABC) attempts to fit a model to an observed data set by simulating additional data sets under different parameter settings of the model until the simulations resemble the observations.
-ABC-MCMC is an implementation of ABC using Markov chain Monte Carlo sampling where new parameter values are drawn from a proposal distribution centered at the current state, and used to update the model if the resulting simulations meet some goodness-of-fit criterion. 
-
-A kernel method is a way of comparing complex objects.  Objects can be mapped to a feature space by breaking each object down to its constituent parts.  We could then calculate the inner product of two objects in this feature space by multiplying the counts of each feature in their respective vectors.  An inner product provides a similarity measure of the two objects - it takes its maximum value when the vectors are the same.  However, the number of possible features can easily become enormous (for example, the number of all possible words in the English language, including "jabberwocky" and "w00t").  The kernel method is essentially an efficient way of computing this inner product by summing only features that appear in at least one of the objects.  
-
-Kamphir uses a kernel function that compares the shapes of phylogenetic trees.  In this case, the features are subset trees extracted from each phylogeny.  When computing the inner product, these features are weighted by the discordance in branch lengths, which represent the passage of evolutionary or chronological time (depending on how the phylogeny was reconstructed).  It turns out that this kernel function provides a rather effective similarity measure for use in the ABC framework.
-
-The take home message is that Kamphir enables you to fit practically any model to a phylogeny, so long as that model can be used to simulate trees.  It requires that you have a program that will generate trees, and a driver script that will automate the process of calling this program under different model parameter values.  I have provided driver scripts for two such programs, [MASTER](http://compevol.github.io/MASTER/) and [rcolgem](http://colgem.r-forge.r-project.org/).
 
 ##Dependencies
 * [Python](https://www.python.org/) - Kamphir was developed with Python 2.7.  Several required modules are only available in distributions of Python since version 2.6, such as [json](https://docs.python.org/2/library/json.html).
