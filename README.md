@@ -1,13 +1,13 @@
 This repository comprises scripts and data that were used in a recent paper:
 
-Poon AF. Phylodynamic inference with kernel ABC and its application to HIV epidemiology. Molecular biology and evolution. 2015 May 25:msv123.
+* Poon AF. Phylodynamic inference with kernel ABC and its application to HIV epidemiology. Molecular biology and evolution. 2015 May 25:msv123.
 
 to apply approximate Bayesian computation (ABC) to phylodynamic inference using a kernel method to compare the shapes of trees.
 
 We are presently working on making a stable implementation of these concepts [here](http://github.com/PoonLab/Kaphi).
 This current work replaces the MCMC sampling method with sequential Monte Carlo (SMC), with which we have obtained more consistent results (see [netabc](http://github.com/rmcclosk/netabc)) and published here:
 
-McCloskey RM, Liang RH, Poon AF. Reconstructing contact network parameters from viral phylogenies. Virus evolution. 2016 Jul 1;2(2):vew029.
+* McCloskey RM, Liang RH, Poon AF. Reconstructing contact network parameters from viral phylogenies. Virus evolution. 2016 Jul 1;2(2):vew029.
 
 
 ##Dependencies
